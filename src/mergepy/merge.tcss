@@ -1,0 +1,8 @@
+CodeView {
+    height: auto; 
+    text-align: left;
+}
+
+Screen {
+    overflow: auto;
+}
