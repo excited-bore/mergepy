@@ -13,8 +13,10 @@ from pathlib import Path
 import argparse 
 import argcomplete
 import codecs
+from textual import events
 from textual.app import App, ComposeResult, RenderResult
-from textual.containers import HorizontalGroup, VerticalScroll
+from textual.containers import HorizontalScroll, VerticalScroll
+from textual.geometry import Size
 from textual.widgets import Footer, Header, Static
 from textual.widget import Widget
 from textual.reactive import reactive
@@ -34,14 +36,25 @@ def is_git_repo(path):
         return False
 
 
-class CodeView(Widget):
+class CodeView(ScrollView):
 
-    lang = ''
-    code = reactive("")
+    code = reactive("")   
 
+    def __init__(self, code, lang, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.code = code
+        self.lang = lang
+        self.height = code.count("\n") + 1 if code else 0
+        self.width = max(len(line) for line in code.splitlines())
+        self.virtual_size = Size(self.width, self.height)
+    
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        """Called when the user moves the mouse over the widget."""
+        pass
+    
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
-        syntax = Syntax(self.code, self.lang, line_numbers=True, indent_guides=True)
+        syntax = Syntax(self.code, self.lang, line_numbers=True)
         return syntax         
 
 class MergeApp(App):
@@ -61,10 +74,8 @@ class MergeApp(App):
         yield Footer()
         with open(self.file_path) as self_file:
             code = self_file.read()
-        code_view = CodeView()
-        code_view.lang = 'fish'
-        code_view.code = code
-        yield code_view
+        with HorizontalScroll(id='scrollview'):
+            yield CodeView(code, 'fish')
 
 
 def main():
@@ -88,6 +99,4 @@ def main():
         MergeApp(args.file1).run()
 
 if __name__ == "__main__":
-#!/usr/bin/env python
-# PYTHON_ARGCOMPLETE_OK
     main()
