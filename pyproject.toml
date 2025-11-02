@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "argcomplete", "GitPython", "texualize"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "mergepy"
+version = "1.0.0"
+authors = [
+  { name="Excited Bore", email="brunt-curry-wobble@duck.com" },
+]
+
+keywords = ["mergepy", "merge files", "git merge", "setuptools", "development"]
+description = "A little commandline tool to copy and paste multiple files and directories to single directory with use of configuration"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [ "argcomplete >= 3.2.1" , "GitPython >= 3.1.14", "textualize >= 6.5.0" ]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+mergepy = "mergepy:main"
+
+[project.urls]
+"Homepage" = "https://github.com/excited-bore/copy-to"
+"Bug Tracker" = "https://github.com/excited-bore/copy-to/issues"
