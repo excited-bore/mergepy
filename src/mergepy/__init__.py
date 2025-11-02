@@ -40,12 +40,13 @@ class CodeView(ScrollView):
 
     code = reactive("")   
 
-    def __init__(self, code, lang, **kwargs) -> None:
+    def __init__(self, filepath, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.code = code
-        self.lang = lang
-        self.height = code.count("\n") + 1 if code else 0
-        self.width = max(len(line) for line in code.splitlines())
+        self.filepath = filepath
+        with open(self.filepath) as self_file:
+            self.code = self_file.read()
+        self.height = self.code.count("\n") + 1 if self.code else 0
+        self.width = max(len(line) for line in self.code.splitlines())
         self.virtual_size = Size(self.width, self.height)
     
     def on_mouse_move(self, event: events.MouseMove) -> None:
@@ -54,7 +55,7 @@ class CodeView(ScrollView):
     
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
-        syntax = Syntax(self.code, self.lang, line_numbers=True)
+        syntax = Syntax.from_path(self.filepath, line_numbers=True)
         return syntax         
 
 class MergeApp(App):
@@ -64,18 +65,19 @@ class MergeApp(App):
     def toggle_dark(self):
         self.dark = not self.dark
 
-    def __init__(self, file_path: Path, **kwargs):
+    def __init__(self, file_path1: Path, file_path2: Path, **kwargs):
         super().__init__(**kwargs)
-        self.file_path = file_path
+        self.file_path1 = file_path1
+        self.file_path2 = file_path2
 
     def compose(self) -> ComposeResult:
          # A scrollable container for the file contents
         yield Header()
         yield Footer()
-        with open(self.file_path) as self_file:
-            code = self_file.read()
-        with HorizontalScroll(id='scrollview'):
-            yield CodeView(code, 'fish')
+        with HorizontalScroll(id='scrollview1'):
+            yield CodeView(self.file_path1)
+        with HorizontalScroll(id='scrollview2'):
+            yield CodeView(self.file_path2)
 
 
 def main():
@@ -96,7 +98,7 @@ def main():
         raise FileNotFoundError("File %s doesn't exists" % sys.argv[2])
     else:
         print("Files found!")
-        MergeApp(args.file1).run()
+        MergeApp(args.file1, args.file2).run()
 
 if __name__ == "__main__":
     main()

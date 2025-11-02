@@ -1,10 +1,10 @@
 CodeView {
-    height: 100vh; 
+    height: auto; 
     text-align: left;
     width: auto;
 }
 
-#scrollview{
+#scrollview1, #scrollview2{
     height: 50%;
     width: 50%;
     overflow: auto;
