@@ -1,4 +1,4 @@
-CodeView {
+SideView, CodeView {
     content-align: center middle;
     height: auto; 
     text-align: left;

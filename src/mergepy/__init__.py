@@ -12,7 +12,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from contextlib import chdir
-from difflib import Differ
+import difflib
 import tempfile
 import argparse 
 import argcomplete
@@ -26,10 +26,9 @@ from textual.widget import Widget
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from rich.syntax import Syntax
+from rich.style import Style
 
-
-
-def guess_language_by_extension(file_path: str) -> str:
+def guess_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
     return {
         ".py": "python",
@@ -57,12 +56,39 @@ def guess_language_by_extension(file_path: str) -> str:
         ".fish": "fish",
     }.get(ext, "unknown")
 
+
+class SideView(ScrollView):
+
+    code = reactive("")   
+
+    def __init__(self, seq, lang, theme, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.lang = lang
+        self.seq=seq
+        self.theme=theme
+        self.height = self.seq.count("\n") + 1 if self.seq else 0
+        self.width = max(len(line) for line in self.seq.splitlines())
+        self.virtual_size = Size(self.width, self.height)
+        
+    
+    def on_mouse_move(self, event: events.MouseMove) -> None:
+        """Called when the user moves the mouse over the widget."""
+        pass
+    
+    def render(self) -> RenderResult:
+        # Syntax is a Rich renderable that displays syntax highlighted code
+        # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
+        
+        syntax = Syntax(self.seq, self.lang, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
+        return syntax
+
 class CodeView(ScrollView):
 
     code = reactive("")   
 
-    def __init__(self, filepath, **kwargs) -> None:
+    def __init__(self, filepath, lang, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.lang = lang
         if isinstance(filepath, Path):
             self.filepath = filepath
             with open(self.filepath) as self_file:
@@ -82,12 +108,12 @@ class CodeView(ScrollView):
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
         if isinstance(self.filepath, Path):
-            syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True)
+            syntax = Syntax.from_path(self.filepath, theme='ansi_dark', line_numbers=True, indent_guides=True, word_wrap=True)
         else:
-            syntax = Syntax(str(list(self.code)), 'Csh', line_numbers=True, indent_guides=True, word_wrap=True)
+            syntax = Syntax(self.code, self.lang, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax         
 
-class MergeApp(App):
+class MergePy(App):
     
     CSS_PATH = "merge.tcss"
     
@@ -98,33 +124,92 @@ class MergeApp(App):
         lines1 = string1.splitlines(keepends=True)
         lines2 = string2.splitlines(keepends=True)
 
-        differ = Differ()
+        differ = difflib.Differ()
         diff = differ.compare(lines1, lines2)
-        print(diff)
-        #raise SystemExit
-        return str(diff)
-
+        diffstr = ''
+        seq, seq1, seq2, common = [],[],[],[]
+        seq1before, seq2before, commonbefore = False,False,False
+        for line in diff:
+            if line.startswith('- '):
+                diffstr += line
+                if not seq1before:
+                    seq1 += [line]
+                    seq += ['seq1']
+                    seq1before, seq2before, commonbefore = True, False, False
+                else: 
+                    seq1[len(seq1)-1] += line
+            elif line.startswith('+ '):
+                diffstr += line
+                if not seq2before:
+                    seq2 += [line]
+                    seq += ['seq2']
+                    seq1before, seq2before, commonbefore = False, True, False
+                else: 
+                    seq2[len(seq2)-1] += line
+            elif line.startswith('  '):
+                diffstr += line
+                if not commonbefore:
+                    common += [line]
+                    seq += ['common']
+                    seq1before, seq2before, commonbefore = False, False, True
+                else: 
+                    common[len(common)-1] += line
+        return diffstr, seq, seq1, seq2, common
+    
     def __init__(self, file_path1: Path, file_path2: Path, **kwargs):
         super().__init__(**kwargs)
         self.file_path1 = file_path1
         self.file_path2 = file_path2
-
-    def compose(self) -> ComposeResult:
-         # A scrollable container for the file contents
-        yield Header()
-        yield Footer()
-        with VerticalGroup():
-            with HorizontalScroll(id='scrollview1'):
-                yield CodeView(self.file_path1)
-            with HorizontalScroll(id='scrollview2'):
-                yield CodeView(self.file_path2)
+        
         with open(self.file_path1) as self_file:
             code1 = self_file.read()
+        
         with open(self.file_path2) as self_file:
             code2 = self_file.read()
-        diff=self.show_diff(code1, code2)
+        
+        self.diff, self.seq, self.seq1, self.seq2, self.common=self.show_diff(code1, code2)
+        
+        if self.file_path1:
+            self.lang = guess_language(self.file_path1)
+        elif self.file_path2:
+            self.lang = guess_language(self.file_path2)
+        # Else we just pretend its a shell language
+        else:
+            self.lang = 'shell'
+
+        seq12, seq22 = [], []
+        seq1, seq2, common = 0,0,0
+        for i in self.seq:
+            if i == 'seq1':
+                seq12 += [self.seq1[seq1]]
+                seq1 += 1
+            elif i == 'seq2':
+                seq22 += [self.seq2[seq2]]
+                seq2 += 1
+            if i == 'common':
+                seq12 += [self.common[common]]
+                seq22 += [self.common[common]]
+                common += 1
+        
+        self.seq1, self.seq2 = '', ''
+        for line in seq12:
+            self.seq1 += line
+        for line in seq22:
+            self.seq2 += line
+            
+
+    def compose(self) -> ComposeResult:
+        # A scrollable container for the file contents
+        yield Header()
+        yield Footer()
+        
+        with VerticalGroup():
+            with HorizontalScroll(id='scrollview1'):
+                yield SideView(self.seq1, self.lang, 'ansi_dark')
+            with HorizontalScroll(id='scrollview2'):
+                yield SideView(self.seq2, self.lang, 'lightbulb')
         with VerticalScroll(id='scrollview3'):
-            yield CodeView(diff)
+            yield CodeView(self.diff, self.lang)
 
 
 def main():
@@ -147,23 +232,7 @@ def main():
         print("Files found!")
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
-        #if shutil.which("git"):
-            #tempd=tempfile.TemporaryDirectory()
-            #with chdir(tempd.name):
-            #    subprocess.run(["git", "init", "temprepo"])
-            #    with chdir('temprepo'):
-            #        shutil.copyfile(file1, 'file')
-            #        subprocess.run(["git", "add", "file"])
-            #        subprocess.run(["git", "commit", "-m", '"First file"'])
-            #        
-            #        subprocess.run(["git", "checkout", "-b", 'branch2'])
-            #        shutil.copyfile(file2, 'file')
-            #        subprocess.run(["git", "commit", "-am", '"Second file"'])
-            #        
-            #        subprocess.run(['git', 'merge', 'main'])
-            #        subprocess.run(['nvim', 'file'])
-                    # shutil.copyfile(file2, 'file2')
-        MergeApp(args.file1, args.file2).run()
+        MergePy(args.file1, args.file2).run()
 
 if __name__ == "__main__":
     main()
