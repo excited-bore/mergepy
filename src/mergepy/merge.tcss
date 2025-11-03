@@ -1,11 +1,32 @@
 CodeView {
+    content-align: center middle;
     height: auto; 
     text-align: left;
     width: auto;
 }
 
-#scrollview1, #scrollview2{
-    height: 50%;
+VerticalGroup{
+    align: center middle;
+    height: 100%;
     width: 50%;
     overflow: auto;
+}
+
+#scrollview3 {
+    align: center middle; 
+    height: 100%;
+    width: 50%;
+    overflow: auto;
+}
+
+#scrollview1, #scrollview2{
+    align: center middle; 
+    height: 50%;
+    width: 100%;
+    overflow: auto;
+}
+
+Screen {
+    height: 100%;
+    layout: horizontal;
 }
