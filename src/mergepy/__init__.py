@@ -60,8 +60,11 @@ def guess_language(file_path: str) -> str:
     }.get(ext, "unknown")
 
 
-class DiffSlice(ListItem):
+class DiffSlice(ListItem,  can_focus=True):
     """Highlights Diff Slice."""
+
+    # BINDINGS = [("space", "_on_click", "Select focused splice of text")]
+
 
     def __init__(self, string, id, linerange, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -74,9 +77,8 @@ class DiffSlice(ListItem):
         self.styles.height = (linerange[1] - linerange[0]) + 3
         self.width = max(len(line) for line in self.string.splitlines())
         self.virtual_size = Size(self.width, self.height)
-    
-
-    def _on_click(self) -> None:
+        
+    def action_focus_item(self) -> None:
         pattern = re.compile(r"^seq1_*")
         if pattern.match(self.id):
             type, type1 = 'seq2', 'scrollview2'
@@ -94,6 +96,13 @@ class DiffSlice(ListItem):
         target1.scroll_to_widget(target, center=True, force=True)
         index = listView.children.index(target)
         listView.index = index
+
+    def _on_click(self) -> None:
+        self.action_focus_item()
+
+    def on_key(self, event: events.Key) -> None:
+        self.action_focus_item()
+        # if event.key == "space":
 
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
@@ -134,10 +143,10 @@ class SetDiff(ListItem):
 
 class SideView(ListView):
 
-    def __init__(self, seq, type, seq2, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, id, seq2, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.seq = seq
-        self.id = type
+        self.id = id
         self.seq2 = seq2
         self.lang = lang
         self.theme = theme
@@ -151,6 +160,52 @@ class SideView(ListView):
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
         
+    def scroll_item(self) -> None:
+        target = self.children[self.index]
+        if target.id:
+            pattern = re.compile(r"^seq1_*")
+            pattern2 = re.compile(r"^seq2_*")
+            if pattern.match(target.id):
+                type, type1 = 'seq2', 'scrollview2'
+                result = re.sub(r"^seq1_", "seq2_", target.id)
+            elif pattern2.match(target.id):
+                type, type1 = 'seq1', 'scrollview1'
+                result = re.sub(r"^seq2_", "seq1_", target.id) 
+            if type and result:
+                self.parent.parent.scroll_to_widget(target, center=True)
+                target1 = self.parent.parent.parent.get_widget_by_id(result, DiffSlice)
+                target2 = self.parent.parent.parent.get_widget_by_id(type1)
+                listView = self.parent.parent.parent.get_widget_by_id(type, SideView)
+                target2.scroll_to_widget(target1, center=True)
+                listView.index = listView.children.index(target1)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == 'up' or event.key == 'down':
+            self.parent.parent.scroll_to_widget(self.children[self.index])
+        elif event.key == 'ctrl+up':
+            for i in reversed(self.children):
+                if i.id and self.children.index(i) < self.index:
+                    self.index = self.children.index(i)
+                    self.scroll_item()
+                    break
+        elif event.key == 'ctrl+down':
+            for i in self.children:
+                if i.id and self.children.index(i) > self.index:
+                    self.index = self.children.index(i)
+                    self.scroll_item()
+                    break
+        elif event.key == 'space':
+            self.scroll_item()
+
+    def on_mount(self) -> None:
+        if self.id == 'seq1':
+            self.focus()
+            for i in self.children:
+                if i.id:
+                    self.index = self.children.index(i)
+                    self.scroll_item()
+                    break 
+
     def compose(self) -> ComposeResult:
         # yield SetDiff(self.seq, self.seq2, self.lang, self.theme)
         x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
@@ -198,7 +253,7 @@ class CodeView(ScrollView):
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
-    
+
     def toggle_dark(self):
         self.dark = not self.dark
 
@@ -324,7 +379,7 @@ class MergePy(App):
         #for i in self.seq12:
         #    print(i) 
     diff = reactive('')
-
+         
 
     def compose(self) -> ComposeResult:
         # A scrollable container for the file contents
