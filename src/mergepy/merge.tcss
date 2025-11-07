@@ -1,8 +1,36 @@
+Screen {
+    height: 100%;
+    width: 100%;
+    # box-sizing: content-box;
+    # layers: below above;
+    layout: horizontal;
+}
+
+DiffSlice{
+    # display: none;
+    # layer: above;
+    content-align: center top;
+    overflow: auto;
+    # height: auto;
+    width: 100%;
+    border: round white;
+}
+
+SetDiff{
+    # display: none;
+    # layer: below;
+    content-align: center top;
+    overflow: scroll;
+    # height: auto;
+    width: 100%;
+    opacity: 50%;
+}
+
 SideView, CodeView {
-    content-align: center middle;
     height: auto; 
     text-align: left;
     width: auto;
+    overflow: hidden;
 }
 
 VerticalGroup{
@@ -12,21 +40,17 @@ VerticalGroup{
     overflow: auto;
 }
 
+#scrollview1, #scrollview2{
+    layout: vertical;
+    align: center top; 
+    height: 50%;
+    width: 100%;
+    overflow: scroll;
+}
+
 #scrollview3 {
     align: center middle; 
     height: 100%;
     width: 50%;
     overflow: auto;
-}
-
-#scrollview1, #scrollview2{
-    align: center middle; 
-    height: 50%;
-    width: 100%;
-    overflow: auto;
-}
-
-Screen {
-    height: 100%;
-    layout: horizontal;
 }

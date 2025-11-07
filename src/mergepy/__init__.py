@@ -8,6 +8,8 @@ __version__='1.0'
 
 import os
 import sys
+import re
+import asyncio
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,11 +19,11 @@ import tempfile
 import argparse 
 import argcomplete
 import codecs
-from textual import events
+from textual import events, on, work
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalScroll, VerticalGroup
 from textual.geometry import Size
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header, Static, Button, ListItem, ListView
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
@@ -57,30 +59,85 @@ def guess_language(file_path: str) -> str:
     }.get(ext, "unknown")
 
 
-class SideView(ScrollView):
+class DiffSlice(ListItem):
+    """Highlights Diff Slice."""
 
-    code = reactive("")   
+    def __init__(self, string, id, linerange, lang, theme, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.string = string
+        self.linerange = linerange
+        if not id == 'none':
+            self.id = id
+        self.lang = lang
+        self.theme = theme
+        self.height = (linerange[1] - linerange[0]) + 3
+        self.styles.height = (linerange[1] - linerange[0]) + 3
+        self.width = max(len(line) for line in self.string.splitlines())
+        self.virtual_size = Size(self.width, self.height)
+    
 
-    def __init__(self, seq, lang, theme, **kwargs) -> None:
+    def render(self) -> RenderResult:
+        # Syntax is a Rich renderable that displays syntax highlighted code
+        # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
+        
+        syntax = Syntax(self.string, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True, word_wrap=True)
+        return syntax
+
+
+
+class SetDiff(ListItem):
+    """Set Diff."""
+
+    def __init__(self, seq, linerange, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.lang = lang
-        self.seq=seq
-        self.theme=theme
-        self.height = self.seq.count("\n") + 1 if self.seq else 0
+        self.seq = seq
+        self.linerange = linerange
+        self.theme = theme
+        self.expand = True
+        self.height = (linerange[1] - linerange[0]) + 1
+        self.styles.height = (linerange[1] - linerange[0]) + 1
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
-        
+
+    diff = reactive('')
     
-    def on_mouse_move(self, event: events.MouseMove) -> None:
-        """Called when the user moves the mouse over the widget."""
-        pass
+    def on_mount(self) -> None:
+        self.diff = self.seq
+        # self.update(self.diff)
     
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
         
-        syntax = Syntax(self.seq, self.lang, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
+        syntax = Syntax(self.diff, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax
+
+class SideView(ScrollView):
+
+    def __init__(self, seq, seq2, lang, theme, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.seq = seq
+        self.seq2 = seq2
+        self.lang = lang
+        self.theme = theme
+        self.height = self.seq.count("\n") + 1 if self.seq else 0
+        self.styles.height = self.seq.count("\n") + 1 if self.seq else 0
+        self.width = max(len(line) for line in self.seq.splitlines())
+        self.virtual_size = Size(self.width, self.height)
+        
+    def compose(self) -> ComposeResult:
+        # yield SetDiff(self.seq, self.seq2, self.lang, self.theme)
+        x = re.compile(r'^(equal|replace)\d+$', re.IGNORECASE)
+        with ListView():
+            for i in self.seq2:
+                j = i.copy()
+                if x.match(i[2]):
+                    yield DiffSlice(self.seq, j[2], j[3], self.lang, self.theme)
+                else:
+                    yield SetDiff(self.seq, i[3], self.lang, self.theme)
+
+
 
 class CodeView(ScrollView):
 
@@ -97,6 +154,7 @@ class CodeView(ScrollView):
             self.filepath=str(filepath)
             self.code=str(filepath)
         self.height = self.code.count("\n") + 1 if self.code else 0
+        self.styles.min_height = self.code.count("\n") + 1 if self.code else 0
         self.width = max(len(line) for line in self.code.splitlines())
         self.virtual_size = Size(self.width, self.height)
     
@@ -126,35 +184,60 @@ class MergePy(App):
 
         differ = difflib.Differ()
         diff = differ.compare(lines1, lines2)
-        diffstr = ''
-        seq, seq1, seq2, common = [],[],[],[]
-        seq1before, seq2before, commonbefore = False,False,False
+        sequence = []
+        # Diff object does not have indices which we need to put it in a list first
         for line in diff:
-            if line.startswith('- '):
+            sequence.append(line)
+        diffstr = ''
+        seq = []
+        seq1before, seq2before, commonbefore = False,False,False
+        i, eq, equal, rep, replace = 0, 0, 0, 0, 0
+        for line in sequence:
+            if equal == 4:
+               equal = 0 
+            if replace == 3:
+               replace = 0
+            if equal > 0:
+                equal += 1
+            elif replace > 0:
+                replace += 1
+            elif line.startswith('- ') and str(sequence[i+1]).startswith('? ') and str(sequence[i+2]).startswith('+ ') and str(sequence[i+3]).startswith('? '):
+                # Equal
+                seq.append(['seq1', [line], "equal" + str(eq)])
+                seq.append(['seq2', [sequence[i+2]], "equal" + str(eq)])
+                eq += 1
+                equal = 1
+                seq1before, seq2before, commonbefore = False, False, False
+            elif line.startswith('- ') and str(sequence[i+1]).startswith('+ ') and str(sequence[i+2]).startswith('? '): 
+                # Replace
+                seq.append(['seq1', [line], "replace" + str(rep)])
+                seq.append(['seq2', [sequence[i+1]], "replace" + str(rep)])
+                rep += 1
+                replace = 1
+                seq1before, seq2before, commonbefore = False, False, False
+            elif line.startswith('- '):
                 diffstr += line
                 if not seq1before:
-                    seq1 += [line]
-                    seq += ['seq1']
+                    seq.append(['seq1', [line], 'none'])
                     seq1before, seq2before, commonbefore = True, False, False
                 else: 
-                    seq1[len(seq1)-1] += line
+                    seq[len(seq)-1][1].append(line)
             elif line.startswith('+ '):
                 diffstr += line
                 if not seq2before:
-                    seq2 += [line]
-                    seq += ['seq2']
+                    seq.append(['seq2', [line], 'none'])
                     seq1before, seq2before, commonbefore = False, True, False
                 else: 
-                    seq2[len(seq2)-1] += line
+                    seq[len(seq)-1][1].append(line)
             elif line.startswith('  '):
                 diffstr += line
                 if not commonbefore:
-                    common += [line]
-                    seq += ['common']
+                    seq.append(['common', [line], 'none'])
                     seq1before, seq2before, commonbefore = False, False, True
                 else: 
-                    common[len(common)-1] += line
-        return diffstr, seq, seq1, seq2, common
+                    seq[len(seq)-1][1].append(line)
+            i += 1
+        return seq
     
     def __init__(self, file_path1: Path, file_path2: Path, **kwargs):
         super().__init__(**kwargs)
@@ -167,36 +250,57 @@ class MergePy(App):
         with open(self.file_path2) as self_file:
             code2 = self_file.read()
         
-        self.diff, self.seq, self.seq1, self.seq2, self.common=self.show_diff(code1, code2)
+        self.seq=self.show_diff(code1, code2)
         
-        if self.file_path1:
+        if self.file_path1.suffix:
             self.lang = guess_language(self.file_path1)
-        elif self.file_path2:
+        elif self.file_path2.suffix:
             self.lang = guess_language(self.file_path2)
         # Else we just pretend its a shell language
         else:
             self.lang = 'shell'
 
-        seq12, seq22 = [], []
-        seq1, seq2, common = 0,0,0
+        self.seq12, self.seq22 = [], []
         for i in self.seq:
-            if i == 'seq1':
-                seq12 += [self.seq1[seq1]]
-                seq1 += 1
-            elif i == 'seq2':
-                seq22 += [self.seq2[seq2]]
-                seq2 += 1
-            if i == 'common':
-                seq12 += [self.common[common]]
-                seq22 += [self.common[common]]
-                common += 1
-        
-        self.seq1, self.seq2 = '', ''
-        for line in seq12:
-            self.seq1 += line
-        for line in seq22:
-            self.seq2 += line
-            
+            if i[0] == 'seq1':
+                self.seq12.append(i)
+            elif i[0] == 'seq2':
+                self.seq22.append(i)
+            if i[0] == 'common':
+                j = i.copy()
+                self.seq12.append(i)
+                self.seq22.append(j)
+
+        # print(self.seq12)
+
+        self.seq1, self.seq2, linenr1, linenr2 = '', '', 0, 0
+        for lines in self.seq12:
+            linenr12 = 0
+            for line in lines[1]:
+                self.seq1 += line
+                linenr12 += 1
+            lines[1] = ''.join(lines[1])
+            lines.append((linenr1 + 1, linenr1 + linenr12))
+            linenr1 += linenr12
+        for lines in self.seq22:
+            linenr22 = 0
+            for line in lines[1]:
+                self.seq2 += line
+                linenr22 += 1
+            lines[1] = ''.join(lines[1])
+            lines.append((linenr2 + 1, linenr2 + linenr22))
+            linenr2 += linenr22
+        #for i, line in enumerate(self.seq2.splitlines(), start=1):
+        #    print(f"{i:>3}: {line}")
+        #x = re.compile(r'^(equal|replace)\d+$', re.IGNORECASE)
+        #for i in self.seq22:
+        #    if x.match(i[2]):
+        #        print(i[1]) 
+        #        print(i[3])
+        #for i in self.seq12:
+        #    print(i) 
+    diff = reactive('')
+
 
     def compose(self) -> ComposeResult:
         # A scrollable container for the file contents
@@ -205,12 +309,23 @@ class MergePy(App):
         
         with VerticalGroup():
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.seq1, self.lang, 'ansi_dark')
+                yield SideView(self.seq1, self.seq12, self.lang, 'ansi_dark')
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.seq2, self.lang, 'lightbulb')
-        with VerticalScroll(id='scrollview3'):
-            yield CodeView(self.diff, self.lang)
-
+                yield SideView(self.seq2, self.seq22, self.lang, 'lightbulb')
+        #if self.diff:
+        #    with VerticalScroll(id='scrollview3'):
+        #        yield CodeView(self.diff, self.lang)
+        seq1, seq2, common = 0,0,0
+        #for lines in self.seq:
+        #    if lines == 'common':
+        #        self.diff += self.common[common] 
+        #        common += 1
+        #    else:
+        #        pass
+                #input("Press Enter to continue...")                    
+        if self.diff:
+            with VerticalScroll(id='scrollview3'):
+                yield CodeView(self.diff, self.lang)
 
 def main():
     choices = argcomplete.completers.ChoicesCompleter
