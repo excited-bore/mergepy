@@ -87,12 +87,11 @@ class DiffSlice(ListItem):
         # self.log(result)
         # self.log(self.linerange[0])    
         
-        self.parent.parent.parent.scroll_to(0 , self.linerange[0])
+        self.parent.parent.parent.scroll_to_widget(self)
         logging.debug(self.parent.parent.parent.styles.height)
         target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
         target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-        target1.scroll_to(0, target.linerange[0])
-        target1.focus()
+        target1.scroll_to_widget(target, force=True)
     
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
