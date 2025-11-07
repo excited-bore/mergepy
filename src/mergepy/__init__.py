@@ -10,6 +10,7 @@ import os
 import sys
 import re
 import asyncio
+import logging
 from pathlib import Path
 import shutil
 import subprocess
@@ -66,8 +67,7 @@ class DiffSlice(ListItem):
         super().__init__(**kwargs)
         self.string = string
         self.linerange = linerange
-        if not id == 'none':
-            self.id = id
+        self.id = id
         self.lang = lang
         self.theme = theme
         self.height = (linerange[1] - linerange[0]) + 3
@@ -76,6 +76,24 @@ class DiffSlice(ListItem):
         self.virtual_size = Size(self.width, self.height)
     
 
+    def _on_click(self) -> None:
+        pattern = re.compile(r"^seq1_*")
+        if pattern.match(self.id):
+            type, type1 = 'seq2', 'scrollview2'
+            result = re.sub(r"^seq1_", "seq2_", self.id)
+        else:
+            type, type1 = 'seq1', 'scrollview1'
+            result = re.sub(r"^seq2_", "seq1_", self.id)
+        # self.log(result)
+        # self.log(self.linerange[0])    
+        
+        self.parent.parent.parent.scroll_to(0 , self.linerange[0])
+        logging.debug(self.parent.parent.parent.styles.height)
+        target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
+        target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
+        target1.scroll_to(0, target.linerange[0])
+        target1.focus()
+    
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
@@ -115,9 +133,10 @@ class SetDiff(ListItem):
 
 class SideView(ScrollView):
 
-    def __init__(self, seq, seq2, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, type, seq2, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.seq = seq
+        self.id = type
         self.seq2 = seq2
         self.lang = lang
         self.theme = theme
@@ -128,7 +147,7 @@ class SideView(ScrollView):
         
     def compose(self) -> ComposeResult:
         # yield SetDiff(self.seq, self.seq2, self.lang, self.theme)
-        x = re.compile(r'^(equal|replace)\d+$', re.IGNORECASE)
+        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
         with ListView():
             for i in self.seq2:
                 j = i.copy()
@@ -203,15 +222,15 @@ class MergePy(App):
                 replace += 1
             elif line.startswith('- ') and str(sequence[i+1]).startswith('? ') and str(sequence[i+2]).startswith('+ ') and str(sequence[i+3]).startswith('? '):
                 # Equal
-                seq.append(['seq1', [line], "equal" + str(eq)])
-                seq.append(['seq2', [sequence[i+2]], "equal" + str(eq)])
+                seq.append(['seq1', [line], "seq1_equal" + str(eq)])
+                seq.append(['seq2', [sequence[i+2]], "seq2_equal" + str(eq)])
                 eq += 1
                 equal = 1
                 seq1before, seq2before, commonbefore = False, False, False
             elif line.startswith('- ') and str(sequence[i+1]).startswith('+ ') and str(sequence[i+2]).startswith('? '): 
                 # Replace
-                seq.append(['seq1', [line], "replace" + str(rep)])
-                seq.append(['seq2', [sequence[i+1]], "replace" + str(rep)])
+                seq.append(['seq1', [line], "seq1_replace" + str(rep)])
+                seq.append(['seq2', [sequence[i+1]], "seq2_replace" + str(rep)])
                 rep += 1
                 replace = 1
                 seq1before, seq2before, commonbefore = False, False, False
@@ -309,9 +328,9 @@ class MergePy(App):
         
         with VerticalGroup():
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.seq1, self.seq12, self.lang, 'ansi_dark')
+                yield SideView(self.seq1, 'seq1', self.seq12, self.lang, 'ansi_dark')
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.seq2, self.seq22, self.lang, 'lightbulb')
+                yield SideView(self.seq2, 'seq2', self.seq22, self.lang, 'lightbulb')
         #if self.diff:
         #    with VerticalScroll(id='scrollview3'):
         #        yield CodeView(self.diff, self.lang)
