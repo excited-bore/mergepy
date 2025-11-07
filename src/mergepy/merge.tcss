@@ -10,8 +10,9 @@ DiffSlice{
     # display: none;
     # layer: above;
     content-align: center top;
-    overflow: auto;
+    # overflow: auto;
     # height: auto;
+    # height: 100%;
     width: 100%;
     border: round white;
 }
@@ -20,16 +21,17 @@ SetDiff{
     # display: none;
     # layer: below;
     content-align: center top;
-    overflow: scroll;
+    # overflow: scroll;
     # height: auto;
+    height: 100%;
     width: 100%;
     opacity: 50%;
 }
 
 SideView, CodeView {
-    height: auto; 
+    height: 50vh; 
     text-align: left;
-    width: auto;
+    width: 100%;
     overflow: hidden;
 }
 
@@ -37,15 +39,16 @@ VerticalGroup{
     align: center middle;
     height: 100%;
     width: 50%;
-    overflow: auto;
+    # overflow: hidden;
 }
 
 #scrollview1, #scrollview2{
     layout: vertical;
     align: center top; 
-    height: 50%;
+    height: 50vh;
     width: 100%;
-    overflow: scroll;
+    # overflow-y: scroll;
+    overflow: auto;
 }
 
 #scrollview3 {

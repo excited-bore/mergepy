@@ -87,12 +87,14 @@ class DiffSlice(ListItem):
         # self.log(result)
         # self.log(self.linerange[0])    
         
-        self.parent.parent.parent.scroll_to_widget(self)
-        logging.debug(self.parent.parent.parent.styles.height)
+        self.parent.parent.parent.scroll_to_widget(self, center=True)
         target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
         target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-        target1.scroll_to_widget(target, force=True)
-    
+        listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+        target1.scroll_to_widget(target, center=True, force=True)
+        index = listView.children.index(target)
+        listView.index = index
+
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
@@ -130,7 +132,7 @@ class SetDiff(ListItem):
         syntax = Syntax(self.diff, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax
 
-class SideView(ScrollView):
+class SideView(ListView):
 
     def __init__(self, seq, type, seq2, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -139,21 +141,25 @@ class SideView(ScrollView):
         self.seq2 = seq2
         self.lang = lang
         self.theme = theme
-        self.height = self.seq.count("\n") + 1 if self.seq else 0
-        self.styles.height = self.seq.count("\n") + 1 if self.seq else 0
+        h = 0
+        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
+        for i in self.seq2:
+            if x.match(i[2]):
+                h += 2
+        self.height = self.seq.count("\n") + 1 + h if self.seq else 0
+        self.styles.height = self.seq.count("\n") + 1 + h if self.seq else 0
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
         
     def compose(self) -> ComposeResult:
         # yield SetDiff(self.seq, self.seq2, self.lang, self.theme)
         x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
-        with ListView():
-            for i in self.seq2:
-                j = i.copy()
-                if x.match(i[2]):
-                    yield DiffSlice(self.seq, j[2], j[3], self.lang, self.theme)
-                else:
-                    yield SetDiff(self.seq, i[3], self.lang, self.theme)
+        for i in self.seq2:
+            j = i.copy()
+            if x.match(i[2]):
+                yield DiffSlice(self.seq, j[2], j[3], self.lang, self.theme)
+            else:
+                yield SetDiff(self.seq, i[3], self.lang, self.theme)
 
 
 
