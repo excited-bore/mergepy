@@ -6,10 +6,14 @@ Screen {
     layout: horizontal;
 }
 
+Label{
+    text-style: bold;
+}
+
+
 DiffSlice{
     # display: none;
     # layer: above;
-    content-align: center top;
     # overflow: auto;
     # height: auto;
     # height: 100%;
@@ -20,7 +24,6 @@ DiffSlice{
 SetDiff{
     # display: none;
     # layer: below;
-    content-align: center top;
     # overflow: scroll;
     # height: auto;
     height: 100%;
@@ -28,11 +31,18 @@ SetDiff{
     opacity: 50%;
 }
 
-SideView, CodeView {
+SideView {
     height: 50vh; 
     text-align: left;
     width: 100%;
     overflow: hidden;
+}
+
+CodeView {
+    height: 100%; 
+    text-align: left;
+    width: 100%;
+    overflow: auto;
 }
 
 VerticalGroup{

@@ -24,7 +24,7 @@ from textual import events, on, work
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalScroll, VerticalGroup
 from textual.geometry import Size
-from textual.widgets import Footer, Header, Static, Button, ListItem, ListView
+from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
@@ -66,11 +66,12 @@ class DiffSlice(ListItem,  can_focus=True):
     # BINDINGS = [("space", "_on_click", "Select focused splice of text")]
 
 
-    def __init__(self, string, id, linerange, lang, theme, **kwargs) -> None:
+    def __init__(self, string, id, linerange, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.string = string
         self.linerange = linerange
         self.id = id
+        self.diff = diff
         self.lang = lang
         self.theme = theme
         self.height = (linerange[1] - linerange[0]) + 3
@@ -100,15 +101,11 @@ class DiffSlice(ListItem,  can_focus=True):
     def _on_click(self) -> None:
         self.action_focus_item()
 
-    def on_key(self, event: events.Key) -> None:
-        self.action_focus_item()
-        # if event.key == "space":
-
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
         
-        syntax = Syntax(self.string, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True, word_wrap=True)
+        syntax = Syntax(self.string, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
 
 
@@ -116,11 +113,12 @@ class DiffSlice(ListItem,  can_focus=True):
 class SetDiff(ListItem):
     """Set Diff."""
 
-    def __init__(self, seq, linerange, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, linerange, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.lang = lang
         self.seq = seq
         self.linerange = linerange
+        self.diff = diff
+        self.lang = lang
         self.theme = theme
         self.expand = True
         self.height = (linerange[1] - linerange[0]) + 1
@@ -128,26 +126,21 @@ class SetDiff(ListItem):
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
 
-    diff = reactive('')
-    
-    def on_mount(self) -> None:
-        self.diff = self.seq
-        # self.update(self.diff)
-    
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
         
-        syntax = Syntax(self.diff, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
+        syntax = Syntax(self.seq, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True)
         return syntax
 
 class SideView(ListView):
 
-    def __init__(self, seq, id, seq2, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, id, seq2, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.seq = seq
         self.id = id
         self.seq2 = seq2
+        self.diff = diff
         self.lang = lang
         self.theme = theme
         h = 0
@@ -196,6 +189,15 @@ class SideView(ListView):
                     break
         elif event.key == 'space':
             self.scroll_item()
+        elif event.key == 'k':
+            target = self.parent.parent.parent.get_widget_by_id('diffview', CodeView)
+            seq = ''
+            range = self.children[self.index].linerange
+            for num, line in enumerate(self.children[self.index].seq.splitlines(), 1):
+                if num >= range[0] and num <= range[1]:
+                    seq += line[2:] + '\n'
+            target.add_diff(seq)
+            self.pop(self.index)
 
     def on_mount(self) -> None:
         if self.id == 'seq1':
@@ -212,31 +214,30 @@ class SideView(ListView):
         for i in self.seq2:
             j = i.copy()
             if x.match(i[2]):
-                yield DiffSlice(self.seq, j[2], j[3], self.lang, self.theme)
+                yield DiffSlice(self.seq, j[2], j[3], self.diff, self.lang, self.theme)
             else:
-                yield SetDiff(self.seq, i[3], self.lang, self.theme)
+                yield SetDiff(self.seq, i[3], self.diff, self.lang, self.theme)
 
 
 
-class CodeView(ScrollView):
+class CodeView(ScrollView):   
 
-    code = reactive("")   
+    code = reactive('')
 
     def __init__(self, filepath, lang, **kwargs) -> None:
         super().__init__(**kwargs)
         self.lang = lang
-        if isinstance(filepath, Path):
-            self.filepath = filepath
-            with open(self.filepath) as self_file:
-                self.code = self_file.read()
-        else:
-            self.filepath=str(filepath)
-            self.code=str(filepath)
+        self.id = 'diffview'
+        self.filepath=str(filepath)
+        self.code=str(filepath)
         self.height = self.code.count("\n") + 1 if self.code else 0
         self.styles.min_height = self.code.count("\n") + 1 if self.code else 0
-        self.width = max(len(line) for line in self.code.splitlines())
+        self.width = max(len(line) for line in self.code.splitlines()) if self.code else 0
         self.virtual_size = Size(self.width, self.height)
     
+    def add_diff(self, code) -> None:
+        self.code += code
+
     def on_mouse_move(self, event: events.MouseMove) -> None:
         """Called when the user moves the mouse over the widget."""
         pass
@@ -244,15 +245,20 @@ class CodeView(ScrollView):
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
-        if isinstance(self.filepath, Path):
-            syntax = Syntax.from_path(self.filepath, theme='ansi_dark', line_numbers=True, indent_guides=True, word_wrap=True)
-        else:
-            syntax = Syntax(self.code, self.lang, line_numbers=True, indent_guides=True, word_wrap=True)
+        syntax = Syntax(self.code, self.lang, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax         
 
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
+
+
+    # ("ctrl+q,q", "quit", "Quit", show=True, priority=True),
+    # ("space", "nothing('2')", "Select Conflict")
+    BINDINGS = [
+        ("Up/Down", " ", "Next/Prev Block"),
+        ("^Up/^Down", "  ", "Next/Prev Conflict"),
+    ]
 
     def toggle_dark(self):
         self.dark = not self.dark
@@ -387,10 +393,12 @@ class MergePy(App):
         yield Footer()
         
         with VerticalGroup():
+            yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.seq1, 'seq1', self.seq12, self.lang, 'ansi_dark')
+                yield SideView(self.seq1, 'seq1', self.seq12, self.diff, self.lang, 'ansi_dark')
+            yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.seq2, 'seq2', self.seq22, self.lang, 'lightbulb')
+                yield SideView(self.seq2, 'seq2', self.seq22, self.diff, self.lang, 'ansi_dark')
         #if self.diff:
         #    with VerticalScroll(id='scrollview3'):
         #        yield CodeView(self.diff, self.lang)
@@ -402,9 +410,8 @@ class MergePy(App):
         #    else:
         #        pass
                 #input("Press Enter to continue...")                    
-        if self.diff:
-            with VerticalScroll(id='scrollview3'):
-                yield CodeView(self.diff, self.lang)
+        with VerticalScroll(id='scrollview3'):
+            yield CodeView(self.diff, self.lang)
 
 def main():
     choices = argcomplete.completers.ChoicesCompleter
