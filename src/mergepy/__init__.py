@@ -67,10 +67,9 @@ class DiffSlice(ListItem,  can_focus=True):
 
     # BINDINGS = [("space", "_on_click", "Select focused splice of text")]
 
-
-    def __init__(self, string, id, linerange, diff, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.string = string
+        self.seq = seq
         self.linerange = linerange
         self.id = id
         self.diff = diff
@@ -78,7 +77,7 @@ class DiffSlice(ListItem,  can_focus=True):
         self.theme = theme
         self.height = (linerange[1] - linerange[0]) + 3
         self.styles.height = (linerange[1] - linerange[0]) + 3
-        self.width = max(len(line) for line in self.string.splitlines())
+        self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
         
     def action_focus_item(self) -> None:
@@ -89,8 +88,6 @@ class DiffSlice(ListItem,  can_focus=True):
         else:
             type, type1 = 'seq1', 'scrollview1'
             result = re.sub(r"^seq2_", "seq1_", self.id)
-        # self.log(result)
-        # self.log(self.linerange[0])    
         
         self.parent.parent.parent.scroll_to_widget(self, center=True)
         target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
@@ -107,9 +104,8 @@ class DiffSlice(ListItem,  can_focus=True):
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
         
-        syntax = Syntax(self.string, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
+        syntax = Syntax(self.seq, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
-
 
 
 class SetDiff(ListItem):
@@ -137,14 +133,7 @@ class SetDiff(ListItem):
 
 class SideView(ListView):
 
-    def __init__(self, seq, id, seq2, diff, lang, theme, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.seq = seq
-        self.id = id
-        self.seq2 = seq2
-        self.diff = diff
-        self.lang = lang
-        self.theme = theme
+    def calibrate_dimensions(self) -> None:
         h = 0
         x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
         for i in self.seq2:
@@ -154,6 +143,16 @@ class SideView(ListView):
         self.styles.height = self.seq.count("\n") + 1 + h if self.seq else 0
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
+
+    def __init__(self, seq, id, seq2, diff, lang, theme, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.seq = seq
+        self.id = id
+        self.seq2 = seq2
+        self.diff = diff
+        self.lang = lang
+        self.theme = theme
+        self.calibrate_dimensions()
         
     def scroll_item(self) -> None:
         target = self.children[self.index]
@@ -195,24 +194,7 @@ class SideView(ListView):
                     self.scroll_item()
                     break
         elif event.key == 'space':
-            self.scroll_item()
-        elif event.key == 'k':
-            target = self.parent.parent.parent.get_widget_by_id('diffview', CodeView)
-            seq = ''
-            range = self.children[self.index].linerange
-            for num, line in enumerate(self.children[self.index].seq.splitlines(), 1):
-                if num >= range[0] and num <= range[1]:
-                    seq += line[2:] + '\n'
-            diff_lines.append([seq, self.index, copy.copy(self.children[self.index])])
-            target.add_diff(seq)
-            self.pop(self.index)
-        elif event.key == 'ctrl+z':
-            if diff_lines:
-                target = self.parent.parent.parent.get_widget_by_id('diffview', CodeView)
-                seq, idx, item = diff_lines.pop()
-                range = len(seq.splitlines())
-                target.remove_diff(range)
-                self.insert(idx, iter([item]))
+            self.scroll_item()                
 
     def on_mount(self) -> None:
         if self.id == 'seq1':
@@ -239,22 +221,27 @@ class CodeView(ScrollView):
 
     code = reactive('')
 
+    def calibrate_dimensions(self) -> None:
+        self.height = self.code.count("\n") + 1 if self.code else 0
+        self.styles.min_height = self.code.count("\n") + 1 if self.code else 0
+        self.width = max(len(line) for line in self.code.splitlines()) if self.code else 0
+        self.virtual_size = Size(self.width, self.height)
+
     def __init__(self, filepath, lang, **kwargs) -> None:
         super().__init__(**kwargs)
         self.lang = lang
         self.id = 'diffview'
         self.filepath=str(filepath)
         self.code=str(filepath)
-        self.height = self.code.count("\n") + 1 if self.code else 0
-        self.styles.min_height = self.code.count("\n") + 1 if self.code else 0
-        self.width = max(len(line) for line in self.code.splitlines()) if self.code else 0
-        self.virtual_size = Size(self.width, self.height)
+        self.calibrate_dimensions()
     
     def add_diff(self, code) -> None:
         self.code += code
+        self.calibrate_dimensions()
 
     def remove_diff(self, range) -> None:
         self.code = "\n".join(self.code.splitlines()[:-range])
+        self.calibrate_dimensions()
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
         """Called when the user moves the mouse over the widget."""
@@ -276,7 +263,44 @@ class MergePy(App):
     BINDINGS = [
         ("Up/Down", " ", "Next/Prev Block"),
         ("^Up/^Down", "  ", "Next/Prev Conflict"),
+        ("k", "keep", "Keep"),
+        ("ctrl+z", "undo", "Undo"),
     ]
+
+    def action_keep(self) -> None:
+        target = self.get_widget_by_id('diffview', CodeView)
+        seq = ''
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        range = list.children[list.index].linerange
+        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+            if num >= range[0] and num <= range[1]:
+                seq += line[2:] + '\n'
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index])])
+        target.add_diff(seq)
+        list.pop(list.index)
+        list.calibrate_dimensions()
+        self.refresh_bindings()
+
+    def action_undo(self) -> None:
+        target = self.get_widget_by_id('diffview', CodeView)
+        seq, id, idx, item = diff_lines.pop()
+        range = len(seq.splitlines())
+        target.remove_diff(range)
+        list = self.get_widget_by_id(id)
+        list.insert(idx, iter([item]))
+        list.calibrate_dimensions()
+        self.refresh_bindings()
+
+    def check_action(
+        self, action: str, parameters: tuple[object, ...]
+    ) -> bool | None:  
+        """Check if an action may run."""
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        if action == "undo" and not diff_lines:
+            return False
+        elif action == 'keep' and not list.children:
+            return False
+        return True
 
     def toggle_dark(self):
         self.dark = not self.dark
@@ -428,8 +452,8 @@ class MergePy(App):
         #    else:
         #        pass
                 #input("Press Enter to continue...")                    
-        with VerticalScroll(id='scrollview3'):
-            yield CodeView(self.diff, self.lang)
+        #with VerticalScroll(id='scrollview3'):
+        yield CodeView(self.diff, self.lang)
 
 def main():
     choices = argcomplete.completers.ChoicesCompleter
