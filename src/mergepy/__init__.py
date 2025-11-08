@@ -8,6 +8,7 @@ __version__='1.0'
 
 import os
 import sys
+import copy
 import re
 import asyncio
 import logging
@@ -59,6 +60,7 @@ def guess_language(file_path: str) -> str:
         ".fish": "fish",
     }.get(ext, "unknown")
 
+diff_lines = []
 
 class DiffSlice(ListItem,  can_focus=True):
     """Highlights Diff Slice."""
@@ -175,6 +177,11 @@ class SideView(ListView):
     def on_key(self, event: events.Key) -> None:
         if event.key == 'up' or event.key == 'down':
             self.parent.parent.scroll_to_widget(self.children[self.index])
+        elif event.key == 'left' or event.key == 'right':
+            if self.id == 'seq1':
+                self.parent.parent.get_widget_by_id('seq2').focus()
+            else:
+                self.parent.parent.get_widget_by_id('seq1').focus()
         elif event.key == 'ctrl+up':
             for i in reversed(self.children):
                 if i.id and self.children.index(i) < self.index:
@@ -196,8 +203,16 @@ class SideView(ListView):
             for num, line in enumerate(self.children[self.index].seq.splitlines(), 1):
                 if num >= range[0] and num <= range[1]:
                     seq += line[2:] + '\n'
+            diff_lines.append([seq, self.index, copy.copy(self.children[self.index])])
             target.add_diff(seq)
             self.pop(self.index)
+        elif event.key == 'ctrl+z':
+            if diff_lines:
+                target = self.parent.parent.parent.get_widget_by_id('diffview', CodeView)
+                seq, idx, item = diff_lines.pop()
+                range = len(seq.splitlines())
+                target.remove_diff(range)
+                self.insert(idx, iter([item]))
 
     def on_mount(self) -> None:
         if self.id == 'seq1':
@@ -237,6 +252,9 @@ class CodeView(ScrollView):
     
     def add_diff(self, code) -> None:
         self.code += code
+
+    def remove_diff(self, range) -> None:
+        self.code = "\n".join(self.code.splitlines()[:-range])
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
         """Called when the user moves the mouse over the widget."""
