@@ -72,6 +72,7 @@ class DiffSlice(ListItem,  can_focus=True):
         self.seq = seq
         self.linerange = linerange
         self.id = id
+        self.classes = re.sub(r'.*_(equal|replace)\d+', r'\1', id)
         self.diff = diff
         self.lang = lang
         self.theme = theme
@@ -242,10 +243,6 @@ class CodeView(ScrollView):
     def remove_diff(self, range) -> None:
         self.code = "\n".join(self.code.splitlines()[:-range])
         self.calibrate_dimensions()
-
-    def on_mouse_move(self, event: events.MouseMove) -> None:
-        """Called when the user moves the mouse over the widget."""
-        pass
     
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
@@ -257,7 +254,6 @@ class MergePy(App):
     
     CSS_PATH = "merge.tcss"
 
-
     # ("ctrl+q,q", "quit", "Quit", show=True, priority=True),
     # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
@@ -265,7 +261,46 @@ class MergePy(App):
         ("^Up/^Down", "  ", "Next/Prev Conflict"),
         ("k", "keep", "Keep"),
         ("ctrl+z", "undo", "Undo"),
+        ("r", "replace", "Replace"),
     ]
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == 'up' or event.key == 'down':
+            self.refresh_bindings()
+
+    def on_click(self) -> None:
+        self.refresh_bindings()
+    
+    #def on_mouse_move(self, event: events.MouseMove) -> None:
+    #    self.refresh_bindings()
+
+    def action_replace(self) -> None:
+        target = self.get_widget_by_id('diffview', CodeView)
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
+        id = 'seq2' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq1'
+        id = id + '_' + str(re.sub(r'.*_', '', list.children[list.index].id)) 
+        diffv = self.get_widget_by_id(id)
+        seq, seq2 = '', ''
+
+        range = list.children[list.index].linerange
+        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+            if num >= range[0] and num <= range[1]:
+                seq += line[2:] + '\n'
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index])])
+        list.pop(list.index)
+        
+        range = diffv.linerange
+        for num, line in enumerate(diffv.seq.splitlines(), 1):
+            if num >= range[0] and num <= range[1]:
+                seq2 += line[2:] + '\n'
+        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv)])
+        list2.pop(list2.children.index(diffv))
+        
+        target.add_diff(seq)
+        list.calibrate_dimensions()
+        list2.calibrate_dimensions()
+        self.refresh_bindings()
 
     def action_keep(self) -> None:
         target = self.get_widget_by_id('diffview', CodeView)
@@ -283,12 +318,28 @@ class MergePy(App):
 
     def action_undo(self) -> None:
         target = self.get_widget_by_id('diffview', CodeView)
-        seq, id, idx, item = diff_lines.pop()
-        range = len(seq.splitlines())
-        target.remove_diff(range)
-        list = self.get_widget_by_id(id)
-        list.insert(idx, iter([item]))
-        list.calibrate_dimensions()
+        x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+        if x.match(diff_lines[-1][3].id):
+            seq, id, idx, item = diff_lines.pop()
+            range = len(seq.splitlines())
+            target.remove_diff(range)
+            list = self.get_widget_by_id(id)
+            list.insert(idx, iter([item]))
+            list.calibrate_dimensions()
+            
+            seq1, id1, idx1, item1 = diff_lines.pop()
+            range1 = len(seq1.splitlines())
+            target.remove_diff(range1)
+            list1 = self.get_widget_by_id(id1)
+            list1.insert(idx1, iter([item1]))
+            list1.calibrate_dimensions()
+        else:
+            seq, id, idx, item = diff_lines.pop()
+            range = len(seq.splitlines())
+            target.remove_diff(range)
+            list = self.get_widget_by_id(id)
+            list.insert(idx, iter([item]))
+            list.calibrate_dimensions()        
         self.refresh_bindings()
 
     def check_action(
@@ -296,7 +347,10 @@ class MergePy(App):
     ) -> bool | None:  
         """Check if an action may run."""
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        h = list.highlighted_child
         if action == "undo" and not diff_lines:
+            return False
+        elif action == 'replace' and not h.has_class('equal') and not h.has_class('replace'):
             return False
         elif action == 'keep' and not list.children:
             return False
