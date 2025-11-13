@@ -112,9 +112,10 @@ class DiffSlice(ListItem,  can_focus=True):
 class SetDiff(ListItem):
     """Set Diff."""
 
-    def __init__(self, seq, linerange, diff, lang, theme, **kwargs) -> None:
+    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.seq = seq
+        self.id = id
         self.linerange = linerange
         self.diff = diff
         self.lang = lang
@@ -143,6 +144,7 @@ class SideView(ListView):
         self.height = self.seq.count("\n") + 1 + h if self.seq else 0
         self.styles.height = self.seq.count("\n") + 1 + h if self.seq else 0
         self.width = max(len(line) for line in self.seq.splitlines())
+        self.styles.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
 
     def __init__(self, seq, id, seq2, diff, lang, theme, **kwargs) -> None:
@@ -157,40 +159,54 @@ class SideView(ListView):
         
     def scroll_item(self) -> None:
         target = self.children[self.index]
-        if target.id:
-            pattern = re.compile(r"^seq1_*")
-            pattern2 = re.compile(r"^seq2_*")
-            if pattern.match(target.id):
-                type, type1 = 'seq2', 'scrollview2'
-                result = re.sub(r"^seq1_", "seq2_", target.id)
-            elif pattern2.match(target.id):
-                type, type1 = 'seq1', 'scrollview1'
-                result = re.sub(r"^seq2_", "seq1_", target.id) 
-            if type and result:
-                self.parent.parent.scroll_to_widget(target, center=True)
-                target1 = self.parent.parent.parent.get_widget_by_id(result, DiffSlice)
-                target2 = self.parent.parent.parent.get_widget_by_id(type1)
-                listView = self.parent.parent.parent.get_widget_by_id(type, SideView)
-                target2.scroll_to_widget(target1, center=True)
-                listView.index = listView.children.index(target1)
+        pattern = re.compile(r'^seq1_(equal|replace)\d+$')
+        pattern2 = re.compile(r'^seq2_(equal|replace)\d+$')
+        if pattern.match(target.id):
+            type, type1 = 'seq2', 'scrollview2'
+            result = re.sub(r"^seq1_", "seq2_", target.id)
+        elif pattern2.match(target.id):
+            type, type1 = 'seq1', 'scrollview1'
+            result = re.sub(r"^seq2_", "seq1_", target.id) 
+        if pattern.match(target.id) or pattern2.match(target.id):
+            b = re.compile(r'min')
+            self.parent.parent.scroll_to_widget(target, top=True)
+            target1 = self.parent.parent.parent.get_widget_by_id(result, DiffSlice)
+            target2 = self.parent.parent.parent.get_widget_by_id(type1)
+            listView = self.parent.parent.parent.get_widget_by_id(type, SideView)
+            target2.scroll_to_widget(target1, center=True)
+            listView.index = listView.children.index(target1)
 
     def on_key(self, event: events.Key) -> None:
-        if event.key == 'up' or event.key == 'down':
-            self.parent.parent.scroll_to_widget(self.children[self.index])
-        elif event.key == 'left' or event.key == 'right':
+        if event.key == 'space': 
+            self.parent.parent.scroll_to_widget(self.children[self.index], center=True)
+        elif event.key == 'up' or event.key == 'down':
+            self.parent.parent.scroll_to_widget(self.children[self.index], top=True)
+        elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
+            self.parent.parent.parent.get_widget_by_id('diffview').focus()
+        elif event.key == 'shift+up':
+            self.parent.scroll_up()
+        elif event.key == 'shift+down':
+            self.parent.scroll_down()
+        elif event.key == 'shift+left':
+            self.parent.scroll_left()
+        elif event.key == 'shift+right':
+            self.parent.scroll_right()
+        elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
             if self.id == 'seq1':
                 self.parent.parent.get_widget_by_id('seq2').focus()
             else:
                 self.parent.parent.get_widget_by_id('seq1').focus()
-        elif event.key == 'ctrl+up':
+        elif event.key == 'alt+up':
             for i in reversed(self.children):
-                if i.id and self.children.index(i) < self.index:
+                pttrn = re.compile(r'.*(equal|replace).*')
+                if pttrn.match(i.id) and self.children.index(i) < self.index:
                     self.index = self.children.index(i)
                     self.scroll_item()
                     break
-        elif event.key == 'ctrl+down':
+        elif event.key == 'alt+down':
             for i in self.children:
-                if i.id and self.children.index(i) > self.index:
+                pttrn = re.compile(r'.*(equal|replace).*')
+                if pttrn.match(i.id) and self.children.index(i) > self.index:
                     self.index = self.children.index(i)
                     self.scroll_item()
                     break
@@ -214,7 +230,7 @@ class SideView(ListView):
             if x.match(i[2]):
                 yield DiffSlice(self.seq, j[2], j[3], self.diff, self.lang, self.theme)
             else:
-                yield SetDiff(self.seq, i[3], self.diff, self.lang, self.theme)
+                yield SetDiff(self.seq, i[2], i[3], self.diff, self.lang, self.theme)
 
 
 
@@ -236,6 +252,10 @@ class CodeView(ScrollView):
         self.code=str(filepath)
         self.calibrate_dimensions()
     
+    def on_key(self, event: events.Key) -> None:
+        if event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
+            self.parent.get_widget_by_id('seq1').focus()
+
     def add_diff(self, code) -> None:
         self.code += code
         self.calibrate_dimensions()
@@ -257,8 +277,9 @@ class MergePy(App):
     # ("ctrl+q,q", "quit", "Quit", show=True, priority=True),
     # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
-        ("Up/Down", " ", "Next/Prev Block"),
-        ("^Up/^Down", "  ", "Next/Prev Conflict"),
+        ("Ctrl-Up/Down/Left/Right", "   ", "Next window"),
+        ("Shift-Up/Down/Left/Right", "    ", "Scroll"),
+        ("Alt-Up/Down", "  ", "Next Conflict"),
         ("k", "keep", "Keep"),
         ("ctrl+z", "undo", "Undo"),
         ("r", "replace", "Replace"),
@@ -267,6 +288,13 @@ class MergePy(App):
     def on_key(self, event: events.Key) -> None:
         if event.key == 'up' or event.key == 'down':
             self.refresh_bindings()
+        elif event.key == 'enter':
+            list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+            x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+            if list.children[list.index].id and x.match(list.children[list.index].id):
+                self.action_replace()
+            else:
+                self.action_keep()
 
     def on_click(self) -> None:
         self.refresh_bindings()
@@ -306,6 +334,7 @@ class MergePy(App):
         target = self.get_widget_by_id('diffview', CodeView)
         seq = ''
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
         range = list.children[list.index].linerange
         for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
@@ -314,32 +343,35 @@ class MergePy(App):
         target.add_diff(seq)
         list.pop(list.index)
         list.calibrate_dimensions()
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        if comm.match(list.children[list.index].id):
+            idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
+            id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
+            list2 = self.get_widget_by_id(idlist2)
+            item2 = self.get_widget_by_id(id2)
+            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2)])
+            list2.pop(list2.children.index(item2))
+            list2.calibrate_dimensions()
+
         self.refresh_bindings()
 
     def action_undo(self) -> None:
         target = self.get_widget_by_id('diffview', CodeView)
-        x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
-        if x.match(diff_lines[-1][3].id):
-            seq, id, idx, item = diff_lines.pop()
-            range = len(seq.splitlines())
-            target.remove_diff(range)
-            list = self.get_widget_by_id(id)
-            list.insert(idx, iter([item]))
-            list.calibrate_dimensions()
-            
+        seq, id, idx, item = diff_lines.pop()
+        range = len(seq.splitlines())
+        target.remove_diff(range)
+        list = self.get_widget_by_id(id)
+        list.insert(idx, iter([item]))
+        list.calibrate_dimensions()        
+        eq_rep = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE)
+        if diff_lines[-1][3].id and eq_rep.match(diff_lines[-1][3].id) or comm.match(diff_lines[-1][3].id):
             seq1, id1, idx1, item1 = diff_lines.pop()
             range1 = len(seq1.splitlines())
             target.remove_diff(range1)
             list1 = self.get_widget_by_id(id1)
             list1.insert(idx1, iter([item1]))
             list1.calibrate_dimensions()
-        else:
-            seq, id, idx, item = diff_lines.pop()
-            range = len(seq.splitlines())
-            target.remove_diff(range)
-            list = self.get_widget_by_id(id)
-            list.insert(idx, iter([item]))
-            list.calibrate_dimensions()        
         self.refresh_bindings()
 
     def check_action(
@@ -372,7 +404,7 @@ class MergePy(App):
         diffstr = ''
         seq = []
         seq1before, seq2before, commonbefore = False,False,False
-        i, eq, equal, rep, replace = 0, 0, 0, 0, 0
+        i, eq, equal, rep, replace, plus, min, com = 0, 0, 0, 0, 0, 0, 0, 0
         for line in sequence:
             if equal == 4:
                equal = 0 
@@ -399,22 +431,25 @@ class MergePy(App):
             elif line.startswith('- '):
                 diffstr += line
                 if not seq1before:
-                    seq.append(['seq1', [line], 'none'])
+                    seq.append(['seq1', [line], 'min' + str(min)])
                     seq1before, seq2before, commonbefore = True, False, False
+                    min += 1
                 else: 
                     seq[len(seq)-1][1].append(line)
             elif line.startswith('+ '):
                 diffstr += line
                 if not seq2before:
-                    seq.append(['seq2', [line], 'none'])
+                    seq.append(['seq2', [line], 'plus' + str(plus)])
                     seq1before, seq2before, commonbefore = False, True, False
+                    plus += 1
                 else: 
                     seq[len(seq)-1][1].append(line)
             elif line.startswith('  '):
                 diffstr += line
                 if not commonbefore:
-                    seq.append(['common', [line], 'none'])
+                    seq.append(['common', [line], 'common' + str(com)])
                     seq1before, seq2before, commonbefore = False, False, True
+                    com += 1
                 else: 
                     seq[len(seq)-1][1].append(line)
             i += 1
@@ -449,6 +484,8 @@ class MergePy(App):
                 self.seq22.append(i)
             if i[0] == 'common':
                 j = i.copy()
+                i[2] = 'seq1_' + i[2]
+                j[2] = 'seq2_' + j[2]
                 self.seq12.append(i)
                 self.seq22.append(j)
 
