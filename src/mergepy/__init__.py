@@ -277,12 +277,13 @@ class MergePy(App):
     # ("ctrl+q,q", "quit", "Quit", show=True, priority=True),
     # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
-        ("Ctrl-Up/Down/Left/Right", "   ", "Next window"),
-        ("Shift-Up/Down/Left/Right", "    ", "Scroll"),
-        ("Alt-Up/Down", "  ", "Next Conflict"),
+        ("Ctrl-↑/↓/←/→", "   ", "Next window"),
+        ("Shift-↑/↓/←/→", "    ", "Scroll"),
+        ("Alt-↑/↓", "  ", "Next Conflict"),
         ("k", "keep", "Keep"),
         ("ctrl+z", "undo", "Undo"),
-        ("r", "replace", "Replace"),
+        ("r", "replace", "Replace Block"),
+        ("d", "delete", "Delete Block"),
     ]
 
     def on_key(self, event: events.Key) -> None:
@@ -315,14 +316,14 @@ class MergePy(App):
         for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index])])
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'replace'])
         list.pop(list.index)
         
         range = diffv.linerange
         for num, line in enumerate(diffv.seq.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq2 += line[2:] + '\n'
-        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv)])
+        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace'])
         list2.pop(list2.children.index(diffv))
         
         target.add_diff(seq)
@@ -339,7 +340,7 @@ class MergePy(App):
         for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index])])
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'keep'])
         target.add_diff(seq)
         list.pop(list.index)
         list.calibrate_dimensions()
@@ -349,11 +350,33 @@ class MergePy(App):
             id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
             list2 = self.get_widget_by_id(idlist2)
             item2 = self.get_widget_by_id(id2)
-            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2)])
+            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'keep'])
             list2.pop(list2.children.index(item2))
             list2.calibrate_dimensions()
 
         self.refresh_bindings()
+
+    def action_delete(self) -> None:
+        target = self.get_widget_by_id('diffview', CodeView)
+        seq = ''
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
+        range = list.children[list.index].linerange
+        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+            if num >= range[0] and num <= range[1]:
+                seq += line[2:] + '\n'
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'delete'])
+        list.pop(list.index)
+        list.calibrate_dimensions()
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        if comm.match(list.children[list.index].id):
+            idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
+            id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
+            list2 = self.get_widget_by_id(idlist2)
+            item2 = self.get_widget_by_id(id2)
+            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete'])
+            list2.pop(list2.children.index(item2))
+            list2.calibrate_dimensions()
 
     def action_undo(self) -> None:
         target = self.get_widget_by_id('diffview', CodeView)
@@ -361,9 +384,10 @@ class MergePy(App):
         list2 = self.get_widget_by_id('seq2')
         list.children[list.index].highlighted = False
         list2.children[list2.index].highlighted = False  
-        seq, id, idx, item = diff_lines.pop()
+        seq, id, idx, item, type = diff_lines.pop()
         range = len(seq.splitlines())
-        target.remove_diff(range)
+        if not type == 'delete':
+            target.remove_diff(range)
         list = self.get_widget_by_id(id)
         item.highlighted = False
         list.insert(idx, iter([item]))
@@ -372,9 +396,10 @@ class MergePy(App):
         comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
         if diff_lines: 
             if (eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id)):
-                seq1, id1, idx1, item1 = diff_lines.pop()
+                seq1, id1, idx1, item1, type1 = diff_lines.pop()
                 range1 = len(seq1.splitlines())
-                target.remove_diff(range1)
+                if not type == 'delete':
+                    target.remove_diff(range1)
                 list1 = self.get_widget_by_id(id1)
                 item1.highlighted = False
                 list1.insert(idx1, iter([item1]))
