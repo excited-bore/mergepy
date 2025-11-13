@@ -357,20 +357,26 @@ class MergePy(App):
 
     def action_undo(self) -> None:
         target = self.get_widget_by_id('diffview', CodeView)
+        list = self.get_widget_by_id('seq1') 
+        list2 = self.get_widget_by_id('seq2')
+        list.children[list.index].highlighted = False
+        list2.children[list2.index].highlighted = False  
         seq, id, idx, item = diff_lines.pop()
         range = len(seq.splitlines())
         target.remove_diff(range)
         list = self.get_widget_by_id(id)
+        item.highlighted = False
         list.insert(idx, iter([item]))
         list.calibrate_dimensions()        
-        eq_rep = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
-        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE)
+        eq_rep = re.compile(r'^seq\d_(equal|replace)\d+$', re.IGNORECASE) 
+        comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
         if diff_lines: 
-            if diff_lines[-1][3].id and eq_rep.match(diff_lines[-1][3].id) or comm.match(diff_lines[-1][3].id):
+            if (eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id)):
                 seq1, id1, idx1, item1 = diff_lines.pop()
                 range1 = len(seq1.splitlines())
                 target.remove_diff(range1)
                 list1 = self.get_widget_by_id(id1)
+                item1.highlighted = False
                 list1.insert(idx1, iter([item1]))
                 list1.calibrate_dimensions()
         self.refresh_bindings()
