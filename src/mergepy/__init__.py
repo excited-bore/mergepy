@@ -365,13 +365,14 @@ class MergePy(App):
         list.calibrate_dimensions()        
         eq_rep = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE)
-        if diff_lines[-1][3].id and eq_rep.match(diff_lines[-1][3].id) or comm.match(diff_lines[-1][3].id):
-            seq1, id1, idx1, item1 = diff_lines.pop()
-            range1 = len(seq1.splitlines())
-            target.remove_diff(range1)
-            list1 = self.get_widget_by_id(id1)
-            list1.insert(idx1, iter([item1]))
-            list1.calibrate_dimensions()
+        if diff_lines: 
+            if diff_lines[-1][3].id and eq_rep.match(diff_lines[-1][3].id) or comm.match(diff_lines[-1][3].id):
+                seq1, id1, idx1, item1 = diff_lines.pop()
+                range1 = len(seq1.splitlines())
+                target.remove_diff(range1)
+                list1 = self.get_widget_by_id(id1)
+                list1.insert(idx1, iter([item1]))
+                list1.calibrate_dimensions()
         self.refresh_bindings()
 
     def check_action(
