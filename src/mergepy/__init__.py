@@ -446,14 +446,14 @@ class MergePy(App):
                 equal += 1
             elif replace > 0:
                 replace += 1
-            elif line.startswith('- ') and str(sequence[i+1]).startswith('? ') and str(sequence[i+2]).startswith('+ ') and str(sequence[i+3]).startswith('? '):
+            elif i+3 < len(sequence) and (line.startswith('- ') and str(sequence[i+1]).startswith('? ') and str(sequence[i+2]).startswith('+ ') and str(sequence[i+3]).startswith('? ')):
                 # Equal
                 seq.append(['seq1', [line], "seq1_equal" + str(eq)])
                 seq.append(['seq2', [sequence[i+2]], "seq2_equal" + str(eq)])
                 eq += 1
                 equal = 1
                 seq1before, seq2before, commonbefore = False, False, False
-            elif line.startswith('- ') and str(sequence[i+1]).startswith('+ ') and str(sequence[i+2]).startswith('? '): 
+            elif i+2 < len(sequence) and (line.startswith('- ') and str(sequence[i+1]).startswith('+ ') and str(sequence[i+2]).startswith('? ')): 
                 # Replace
                 seq.append(['seq1', [line], "seq1_replace" + str(rep)])
                 seq.append(['seq2', [sequence[i+1]], "seq2_replace" + str(rep)])
