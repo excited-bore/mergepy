@@ -21,7 +21,7 @@ import tempfile
 import argparse 
 import argcomplete
 import codecs
-from textual import events, on, work
+from textual import events, on, work, getters
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalScroll, VerticalGroup
 from textual.geometry import Size
@@ -287,15 +287,16 @@ class MergePy(App):
     ]
 
     def on_key(self, event: events.Key) -> None:
-        if event.key == 'up' or event.key == 'down':
-            self.refresh_bindings()
-        elif event.key == 'enter':
-            list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-            x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
-            if list.children[list.index].id and x.match(list.children[list.index].id):
-                self.action_replace()
-            else:
-                self.action_keep()
+        if self.id == 'None':
+            if event.key == 'up' or event.key == 'down':
+                self.refresh_bindings()
+            elif event.key == 'enter':
+                list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+                x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+                if list.children[list.index].id and x.match(list.children[list.index].id):
+                    self.action_replace()
+                else:
+                    self.action_keep()
 
     def on_click(self) -> None:
         self.refresh_bindings()
@@ -410,15 +411,18 @@ class MergePy(App):
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:  
         """Check if an action may run."""
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        h = list.highlighted_child
-        if action == "undo" and not diff_lines:
-            return False
-        elif action == 'replace' and not h.has_class('equal') and not h.has_class('replace'):
-            return False
-        elif action == 'keep' and not list.children:
-            return False
-        return True
+        if self.id == 'None':  
+            list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+            h = list.highlighted_child
+            if action == "undo" and not diff_lines:
+                return False
+            elif action == 'replace' and not h.has_class('equal') and not h.has_class('replace'):
+                return False
+            elif action == 'keep' and not list.children:
+                return False
+            return True
+        else:
+            return True
 
     def toggle_dark(self):
         self.dark = not self.dark
@@ -556,7 +560,7 @@ class MergePy(App):
         # A scrollable container for the file contents
         yield Header()
         yield Footer()
-        
+       
         with VerticalGroup():
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
