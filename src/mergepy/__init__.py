@@ -504,9 +504,9 @@ class MergePy(App):
         
         self.seq=self.show_diff(code1, code2)
         
-        if self.file_path1.suffix:
+        if Path(self.file_path1).suffix:
             self.lang = guess_language(self.file_path1)
-        elif self.file_path2.suffix:
+        elif Path(self.file_path2).suffix:
             self.lang = guess_language(self.file_path2)
         # Else we just pretend its a shell language
         else:
@@ -602,7 +602,7 @@ def main():
         print("Files found!")
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
-        MergePy(args.file1, args.file2).run()
+        MergePy(file1, file2).run()
 
 if __name__ == "__main__":
     main()
