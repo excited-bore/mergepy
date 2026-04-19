@@ -178,9 +178,11 @@ class SideView(ListView):
 
     def on_key(self, event: events.Key) -> None:
         if event.key == 'space': 
-            self.parent.parent.scroll_to_widget(self.children[self.index], center=True)
-        elif event.key == 'up' or event.key == 'down':
             self.parent.parent.scroll_to_widget(self.children[self.index], top=True)
+        elif event.key == 'up' and self.index-1 >= 0:
+            self.parent.scroll_to_widget(self.children[self.index-1], top=True)
+        elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
+            self.parent.scroll_to_widget(self.children[self.index+1], center=True)
         elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
             self.parent.parent.parent.get_widget_by_id('diffview').focus()
         elif event.key == 'shift+up':
