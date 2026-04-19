@@ -44,7 +44,6 @@ def guess_language(file_path: str) -> str:
         ".h": "c-header",
         ".html": "html",
         ".css": "css",
-        ".sh": "bash",
         ".rb": "ruby",
         ".php": "php",
         ".rs": "rust",
@@ -62,7 +61,7 @@ def guess_language(file_path: str) -> str:
 
 diff_lines = []
 
-class DiffSlice(ListItem,  can_focus=True):
+class DiffSlice(ListItem):
     """Highlights Diff Slice."""
 
     # BINDINGS = [("space", "_on_click", "Select focused splice of text")]
@@ -98,7 +97,7 @@ class DiffSlice(ListItem,  can_focus=True):
         index = listView.children.index(target)
         listView.index = index
 
-    def _on_click(self) -> None:
+    def on_click(self) -> None:
         self.action_focus_item()
 
     def render(self) -> RenderResult:
@@ -125,6 +124,26 @@ class SetDiff(ListItem):
         self.styles.height = (linerange[1] - linerange[0]) + 1
         self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
+
+    def action_focus_item(self) -> None:
+        pattern = re.compile(r"^seq1_*")
+        if pattern.match(self.id):
+            type, type1 = 'seq2', 'scrollview2'
+            result = re.sub(r"^seq1_", "seq2_", self.id)
+        else:
+            type, type1 = 'seq1', 'scrollview1'
+            result = re.sub(r"^seq2_", "seq1_", self.id)
+        
+        self.parent.parent.parent.scroll_to_widget(self, center=True)
+        target = self.parent.parent.parent.parent.get_widget_by_id(result, SetDiff)
+        target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
+        listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+        target1.scroll_to_widget(target, center=True, force=True)
+        index = listView.children.index(target)
+        listView.index = index
+
+    def on_click(self) -> None:
+        self.action_focus_item() 
 
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
