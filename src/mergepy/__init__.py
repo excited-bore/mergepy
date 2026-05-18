@@ -303,6 +303,7 @@ class MergePy(App):
         ("Ctrl-↑/↓/←/→", "   ", "Next window"),
         ("Shift-↑/↓/←/→", "    ", "Scroll"),
         ("Alt-↑/↓", "  ", "Next Conflict"),
+        ("Spacebar", "     ", "Sync"),
         ("k", "keep", "Keep"),
         ("ctrl+z", "undo", "Undo"),
         ("r", "replace", "Replace Block"),
@@ -310,16 +311,14 @@ class MergePy(App):
     ]
 
     def on_key(self, event: events.Key) -> None:
-        if self.id == 'None':
-            if event.key == 'up' or event.key == 'down':
-                self.refresh_bindings()
-            elif event.key == 'enter':
-                list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-                x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
-                if list.children[list.index].id and x.match(list.children[list.index].id):
-                    self.action_replace()
-                else:
-                    self.action_keep()
+        self.refresh_bindings()
+        if event.key == 'enter':
+            list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+            x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+            if list.children[list.index].id and x.match(list.children[list.index].id):
+                self.action_replace()
+            else:
+                self.action_keep()
 
     def on_click(self) -> None:
         self.refresh_bindings()
@@ -450,18 +449,16 @@ class MergePy(App):
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:  
         """Check if an action may run."""
-        if self.id == 'None':  
-            list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-            h = list.highlighted_child
-            if action == "undo" and len(diff_lines) == 0:
-                return False
-            elif action == 'replace' and not h.has_class('equal') and not h.has_class('replace'):
-                return False
-            elif action == 'keep' and len(list.children) == 0:
-                return False
-            return True
-        else:
-            return True
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        h = list.highlighted_child
+        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE) 
+        if action == "undo" and len(diff_lines) == 0:
+            return False
+        if action == 'replace' and not x.match(h.id):
+            return False
+        if action == 'keep' and len(list.children) == 0:
+            return False
+        return True
 
     def toggle_dark(self):
         self.dark = not self.dark
