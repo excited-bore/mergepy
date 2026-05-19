@@ -91,12 +91,16 @@ class DiffSlice(ListItem):
             result = re.sub(r"^seq2_", "seq1_", self.id)
         
         self.parent.parent.parent.scroll_to_widget(self, center=True)
-        target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
-        target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-        listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
-        target1.scroll_to_widget(target, center=True, force=True)
-        index = listView.children.index(target)
-        listView.index = index
+        
+        try:
+            target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
+            target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
+            target1.scroll_to_widget(target, center=True, force=True)
+            listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+            index = listView.children.index(target)
+            listView.index = index
+        except:
+            pass
 
     def on_click(self) -> None:
         self.action_focus_item()
@@ -109,7 +113,7 @@ class DiffSlice(ListItem):
         return syntax
 
 
-class SetDiff(ListItem):
+class CommonSlice(ListItem):
     """Set Diff."""
 
     def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
@@ -120,7 +124,6 @@ class SetDiff(ListItem):
         self.diff = diff
         self.lang = lang
         self.theme = theme
-        self.expand = True
         self.height = (linerange[1] - linerange[0]) + 1
         self.styles.height = (linerange[1] - linerange[0]) + 1
         self.width = max(len(line) for line in self.seq.splitlines())
@@ -136,12 +139,16 @@ class SetDiff(ListItem):
             result = re.sub(r"^seq2_", "seq1_", self.id)
         
         self.parent.parent.parent.scroll_to_widget(self, center=True)
-        target = self.parent.parent.parent.parent.get_widget_by_id(result, SetDiff)
-        target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-        listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
-        target1.scroll_to_widget(target, center=True, force=True)
-        index = listView.children.index(target)
-        listView.index = index
+        
+        try:
+            target = self.parent.parent.parent.parent.get_widget_by_id(result, CommonSlice)
+            target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
+            listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+            target1.scroll_to_widget(target, center=True, force=True)
+            index = listView.children.index(target)
+            listView.index = index
+        except:
+            pass
 
     def on_click(self) -> None:
         self.action_focus_item() 
@@ -192,11 +199,11 @@ class SideView(ListView):
         if event.key == 'space': 
             self.scroll_item()
         elif event.key == 'up' and self.index-1 >= 0:
-            self.parent.scroll_to_widget(self.children[self.index-1], top=True)
+            self.parent.scroll_to_widget(self.children[self.index-1], center=True)
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
             self.parent.scroll_to_widget(self.children[self.index+1], center=True)
         elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
-            self.parent.parent.parent.get_widget_by_id('diffview').focus()
+            self.parent.parent.parent.get_widget_by_id('mergeview').focus()
         elif event.key == 'shift+up':
             self.parent.scroll_up()
         elif event.key == 'shift+down':
@@ -232,18 +239,18 @@ class SideView(ListView):
             self.focus()
 
     def compose(self) -> ComposeResult:
-        # yield SetDiff(self.seq, self.seq2, self.lang, self.theme)
+        # yield CommonSlice(self.seq, self.seq2, self.lang, self.theme)
         x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
         for i in self.seq2:
             j = i.copy()
             if x.match(i[2]):
                 yield DiffSlice(self.seq, j[2], j[3], self.diff, self.lang, self.theme)
             else:
-                yield SetDiff(self.seq, i[2], i[3], self.diff, self.lang, self.theme)
+                yield CommonSlice(self.seq, i[2], i[3], self.diff, self.lang, self.theme)
 
 
 
-class DiffView(ScrollView):   
+class MergeView(ScrollView):   
 
     code = reactive('')
 
@@ -259,7 +266,7 @@ class DiffView(ScrollView):
     def __init__(self, code, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.lang = lang
-        self.id = 'diffview'
+        self.id = 'mergeview'
         self.code = code
         self.theme = theme
         self.calibrate_dimensions()
@@ -314,23 +321,24 @@ class MergePy(App):
         self.refresh_bindings()
         if event.key == 'enter':
             list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-            x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
-            if list.children[list.index].id and x.match(list.children[list.index].id):
-                self.action_replace()
-            else:
-                self.action_keep()
+            # if list still has entries
+            if type(list.index) == int and len(list.children) >= list.index:
+                x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+                if (list.children[list.index].id and x.match(list.children[list.index].id)):
+                    self.action_replace()
+                else:
+                    self.action_keep()
 
     def on_click(self) -> None:
         self.refresh_bindings()
-    
-    #def on_mouse_move(self, event: events.MouseMove) -> None:
-    #    self.refresh_bindings()
+   
+    #def check_empty(self) -> None:
+    #    seq1 = self.get_widget_by_id('seq1') 
+    #    raise SystemExit(len(seq1.seq))
 
     def action_replace(self) -> None:
-        target = self.get_widget_by_id('diffview', DiffView)
+        target = self.get_widget_by_id('mergeview', MergeView)
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        
-        list.children[list.index].action_focus_item()
         
         list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
         id = 'seq2' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq1'
@@ -358,42 +366,45 @@ class MergePy(App):
         self.refresh_bindings()
 
     def action_keep(self) -> None:
-        target = self.get_widget_by_id('diffview', DiffView)
+        target = self.get_widget_by_id('mergeview', MergeView)
         seq = ''
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-       
         id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
+        list = self.get_widget_by_id('seq1') if id == 'seq1' else self.get_widget_by_id('seq2')
         
-        if len(list) > 0:
-            
-            list.children[list.index].action_focus_item() 
-       
-            range = list.children[list.index].linerange
-            for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
-                if num >= range[0] and num <= range[1]:
-                    seq += line[2:] + '\n'
-            diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'keep'])
-            target.add_diff(seq)
-            list.pop(list.index)
-            list.calibrate_dimensions()
-            comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-            if comm.match(list.children[list.index].id):
-                idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
-                id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
-                list2 = self.get_widget_by_id(idlist2)
-                item2 = self.get_widget_by_id(id2)
-                diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'keep'])
-                list2.pop(list2.children.index(item2))
-                list2.calibrate_dimensions()
+        range = list.children[list.index].linerange
+        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+            if num >= range[0] and num <= range[1]:
+                seq += line[2:] + '\n'
+        
+        item = list.children[list.index]
 
+        diff_lines.append([seq, list.id, list.index, copy.copy(item), 'keep'])
+        target.add_diff(seq)
+        
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        if comm.match(list.children[list.index].id):
+            idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
+            list2 = self.get_widget_by_id(idlist2)
+            
+            id2 = list.children[list.index].id 
+            id2 = re.sub(r"seq1", 'seq2', id2) if id == 'seq1' else re.sub(r"seq2", 'seq1', id2)
+            item2 = self.get_widget_by_id(id2)
+            idx2 = list2.children.index(item2) 
+
+            diff_lines.append([seq, list2.id, idx2, copy.copy(item2), 'keep'])
+            list2.pop(idx2)
+            list2.calibrate_dimensions()
+
+        list.pop(list.index)
+        list.calibrate_dimensions()
+        
         self.refresh_bindings()
+         
 
     def action_delete(self) -> None:
-        target = self.get_widget_by_id('diffview', DiffView)
+        target = self.get_widget_by_id('mergeview', MergeView)
         seq = ''
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        
-        list.children[list.index].action_focus_item() 
         
         id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
         range = list.children[list.index].linerange
@@ -412,10 +423,15 @@ class MergePy(App):
             diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete'])
             list2.pop(list2.children.index(item2))
             list2.calibrate_dimensions()
+        
+        self.refresh_bindings()
+        # self.check_empty() 
 
     def action_undo(self) -> None:
+        eq_rep = re.compile(r'^seq\d_(equal|replace)\d+$', re.IGNORECASE) 
+        comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
         if len(diff_lines) > 0: 
-            target = self.get_widget_by_id('diffview', DiffView)
+            target = self.get_widget_by_id('mergeview', MergeView)
             list = self.get_widget_by_id('seq1') 
             list2 = self.get_widget_by_id('seq2')
             if list.index:
@@ -430,11 +446,10 @@ class MergePy(App):
             item.highlighted = False
             list.insert(idx, iter([item]))
             list.calibrate_dimensions()        
-            eq_rep = re.compile(r'^seq\d_(equal|replace)\d+$', re.IGNORECASE) 
-            comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
             
             if len(diff_lines) > 0: 
                 if (eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id)):
+                    #raise SystemExit(item.id) 
                     seq1, id1, idx1, item1, type1 = diff_lines.pop()
                     range1 = len(seq1.splitlines())
                     if not type == 'delete':
@@ -449,15 +464,29 @@ class MergePy(App):
         self, action: str, parameters: tuple[object, ...]
     ) -> bool | None:  
         """Check if an action may run."""
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        h = list.highlighted_child
+        seq = False 
         x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE) 
+        
+        try:
+            if self.get_widget_by_id('scrollview1').has_focus_within:
+                list = self.get_widget_by_id('seq1') 
+                h = list.highlighted_child
+                seq = True 
+            elif self.get_widget_by_id('scrollview2').has_focus_within:
+                list = self.get_widget_by_id('seq2')
+                h = list.highlighted_child
+                seq = True
+        except:
+            pass
+        
         if action == "undo" and len(diff_lines) == 0:
             return False
-        if action == 'replace' and not x.match(h.id):
+        if action == 'replace' and (not seq or h == None or not x.match(h.id)):
             return False
-        if action == 'keep' and len(list.children) == 0:
+        if action == 'keep' and (not seq or len(list.children) == 0):
             return False
+        if action == 'delete' and (not seq or len(list.children) == 0):
+            return False 
         return True
 
     def toggle_dark(self):
@@ -563,8 +592,6 @@ class MergePy(App):
                 self.seq12.append(i)
                 self.seq22.append(j)
 
-        # print(self.seq12)
-
         self.seq1, self.seq2, linenr1, linenr2 = '', '', 0, 0
         for lines in self.seq12:
             linenr12 = 0
@@ -607,7 +634,7 @@ class MergePy(App):
                 yield SideView(self.seq2, 'seq2', self.seq22, self.diff, self.lang, 'ansi_dark')
         #if self.diff:
         #    with VerticalScroll(id='scrollview3'):
-        #        yield DiffView(self.diff, self.lang)
+        #        yield MergeView(self.diff, self.lang)
         seq1, seq2, common = 0,0,0
         #for lines in self.seq:
         #    if lines == 'common':
@@ -617,7 +644,7 @@ class MergePy(App):
         #        pass
                 #input("Press Enter to continue...")                    
         #with VerticalScroll(id='scrollview3'):
-        yield DiffView(self.diff, self.lang, 'ansi_dark')
+        yield MergeView(self.diff, self.lang, 'ansi_dark')
 
 def main():
     choices = argcomplete.completers.ChoicesCompleter
