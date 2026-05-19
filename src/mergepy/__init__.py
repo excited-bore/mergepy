@@ -332,9 +332,17 @@ class MergePy(App):
     def on_click(self) -> None:
         self.refresh_bindings()
    
-    #def check_empty(self) -> None:
-    #    seq1 = self.get_widget_by_id('seq1') 
-    #    raise SystemExit(len(seq1.seq))
+    def check_empty(self) -> None:
+        seq1 = self.get_widget_by_id('seq1') 
+        seq2 = self.get_widget_by_id('seq2') 
+        mergeview = self.get_widget_by_id('mergeview') 
+     
+        if len(seq1.seq2) == 0 and len(seq2.seq2) > 0:
+            seq2.focus() 
+        elif len(seq1.seq2) > 0 and len(seq2.seq2) == 0:
+            seq1.focus() 
+        elif len(seq1.seq2) == 0 and len(seq2.seq2) == 0 and not mergeview.diff == '':
+            mergeview.focus() 
 
     def action_replace(self) -> None:
         target = self.get_widget_by_id('mergeview', MergeView)
@@ -364,6 +372,8 @@ class MergePy(App):
         list.calibrate_dimensions()
         list2.calibrate_dimensions()
         self.refresh_bindings()
+        self.check_empty() 
+         
 
     def action_keep(self) -> None:
         target = self.get_widget_by_id('mergeview', MergeView)
@@ -399,7 +409,7 @@ class MergePy(App):
         list.calibrate_dimensions()
         
         self.refresh_bindings()
-         
+        self.check_empty() 
 
     def action_delete(self) -> None:
         target = self.get_widget_by_id('mergeview', MergeView)
@@ -425,7 +435,7 @@ class MergePy(App):
             list2.calibrate_dimensions()
         
         self.refresh_bindings()
-        # self.check_empty() 
+        self.check_empty() 
 
     def action_undo(self) -> None:
         eq_rep = re.compile(r'^seq\d_(equal|replace)\d+$', re.IGNORECASE) 
@@ -459,6 +469,8 @@ class MergePy(App):
                     list1.insert(idx1, iter([item1]))
                     list1.calibrate_dimensions()
             self.refresh_bindings()
+            self.check_empty() 
+    
 
     def check_action(
         self, action: str, parameters: tuple[object, ...]
