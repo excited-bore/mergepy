@@ -62,25 +62,19 @@ def guess_language(file_path: str) -> str:
 
 diff_lines = []
 
-class DiffSlice(ListItem):
-    """Highlights Diff Slice."""
-
-    # BINDINGS = [("space", "_on_click", "Select focused splice of text")]
+class Slice(ListItem):
+    """Base class for diff slices."""
 
     def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.seq = seq
-        self.linerange = linerange
         self.id = id
-        self.classes = re.sub(r'.*_(equal|replace)\d+', r'\1', id)
+        self.linerange = linerange
         self.diff = diff
         self.lang = lang
         self.theme = theme
-        self.height = (linerange[1] - linerange[0]) + 3
-        self.styles.height = (linerange[1] - linerange[0]) + 3
         self.width = max(len(line) for line in self.seq.splitlines())
-        self.virtual_size = Size(self.width, self.height)
-        
+
     def action_focus_item(self) -> None:
         pattern = re.compile(r"^seq1_*")
         if pattern.match(self.id):
@@ -89,14 +83,14 @@ class DiffSlice(ListItem):
         else:
             type, type1 = 'seq1', 'scrollview1'
             result = re.sub(r"^seq2_", "seq1_", self.id)
-        
+
         self.parent.parent.parent.scroll_to_widget(self, center=True)
-        
+
         try:
-            target = self.parent.parent.parent.parent.get_widget_by_id(result, DiffSlice)
+            target = self.parent.parent.parent.parent.get_widget_by_id(result, Slice)
             target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-            target1.scroll_to_widget(target, center=True, force=True)
             listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+            target1.scroll_to_widget(target, center=True, force=True)
             index = listView.children.index(target)
             listView.index = index
         except:
@@ -105,58 +99,32 @@ class DiffSlice(ListItem):
     def on_click(self) -> None:
         self.action_focus_item()
 
+
+class DiffSlice(Slice):
+    """Highlights Diff Slice."""
+
+    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
+        super().__init__(seq, id, linerange, diff, lang, theme, **kwargs)
+        self.classes = re.sub(r'.*_(replace)\d+', r'\1', id)
+        self.height = (linerange[1] - linerange[0]) + 3
+        self.styles.height = (linerange[1] - linerange[0]) + 3
+        self.virtual_size = Size(self.width, self.height)
+
     def render(self) -> RenderResult:
-        # Syntax is a Rich renderable that displays syntax highlighted code
-        # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
-        
         syntax = Syntax(self.seq, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
 
 
-class CommonSlice(ListItem):
-    """Set Diff."""
+class CommonSlice(Slice):
+    """Common Slice."""
 
     def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.seq = seq
-        self.id = id
-        self.linerange = linerange
-        self.diff = diff
-        self.lang = lang
-        self.theme = theme
+        super().__init__(seq, id, linerange, diff, lang, theme, **kwargs)
         self.height = (linerange[1] - linerange[0]) + 1
         self.styles.height = (linerange[1] - linerange[0]) + 1
-        self.width = max(len(line) for line in self.seq.splitlines())
         self.virtual_size = Size(self.width, self.height)
 
-    def action_focus_item(self) -> None:
-        pattern = re.compile(r"^seq1_*")
-        if pattern.match(self.id):
-            type, type1 = 'seq2', 'scrollview2'
-            result = re.sub(r"^seq1_", "seq2_", self.id)
-        else:
-            type, type1 = 'seq1', 'scrollview1'
-            result = re.sub(r"^seq2_", "seq1_", self.id)
-        
-        self.parent.parent.parent.scroll_to_widget(self, center=True)
-        
-        try:
-            target = self.parent.parent.parent.parent.get_widget_by_id(result, CommonSlice)
-            target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-            listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
-            target1.scroll_to_widget(target, center=True, force=True)
-            index = listView.children.index(target)
-            listView.index = index
-        except:
-            pass
-
-    def on_click(self) -> None:
-        self.action_focus_item() 
-
     def render(self) -> RenderResult:
-        # Syntax is a Rich renderable that displays syntax highlighted code
-        # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
-        
         syntax = Syntax(self.seq, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True)
         return syntax
 
@@ -170,7 +138,7 @@ class SideView(ListView):
 
     def calibrate_dimensions(self) -> None:
         h = 0
-        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
+        x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE)
         for i in self.seq2:
             if x.match(i[2]):
                 h += 2
@@ -219,14 +187,14 @@ class SideView(ListView):
                 self.parent.parent.get_widget_by_id('seq1').focus()
         elif event.key == 'alt+up':
             for i in reversed(self.children):
-                pttrn = re.compile(r'.*(equal|replace).*')
+                pttrn = re.compile(r'.*replace.*')
                 if pttrn.match(i.id) and self.children.index(i) < self.index:
                     self.index = self.children.index(i)
                     self.scroll_item()
                     break
         elif event.key == 'alt+down':
             for i in self.children:
-                pttrn = re.compile(r'.*(equal|replace).*')
+                pttrn = re.compile(r'.*replace.*')
                 if pttrn.match(i.id) and self.children.index(i) > self.index:
                     self.index = self.children.index(i)
                     self.scroll_item()
@@ -240,7 +208,7 @@ class SideView(ListView):
 
     def compose(self) -> ComposeResult:
         # yield CommonSlice(self.seq, self.seq2, self.lang, self.theme)
-        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE)
+        x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE)
         for i in self.seq2:
             j = i.copy()
             if x.match(i[2]):
@@ -323,7 +291,7 @@ class MergePy(App):
             list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
             # if list still has entries
             if type(list.index) == int and len(list.children) >= list.index:
-                x = re.compile(r'seq\d_(equal|replace)\d+', re.IGNORECASE) 
+                x = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
                 if (list.children[list.index].id and x.match(list.children[list.index].id)):
                     self.action_replace()
                 else:
@@ -438,7 +406,7 @@ class MergePy(App):
         self.check_empty() 
 
     def action_undo(self) -> None:
-        eq_rep = re.compile(r'^seq\d_(equal|replace)\d+$', re.IGNORECASE) 
+        eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
         comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
         if len(diff_lines) > 0: 
             target = self.get_widget_by_id('mergeview', MergeView)
@@ -477,7 +445,7 @@ class MergePy(App):
     ) -> bool | None:  
         """Check if an action may run."""
         seq = False 
-        x = re.compile(r'^seq[12]_(equal|replace)\d+$', re.IGNORECASE) 
+        x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE) 
         
         try:
             if self.get_widget_by_id('scrollview1').has_focus_within:
@@ -517,30 +485,44 @@ class MergePy(App):
         diffstr = ''
         seq = []
         seq1before, seq2before, commonbefore = False,False,False
-        i, eq, equal, rep, replace, plus, min, com = 0, 0, 0, 0, 0, 0, 0, 0
+        i, replace, rep, plus, min, com = 0, 0, 0, 0, 0, 0
         for line in sequence:
-            if equal == 4:
-               equal = 0 
-            if replace == 3:
-               replace = 0
-            if equal > 0:
-                equal += 1
-            elif replace > 0:
-                replace += 1
+
+            if replace > 0:
+                replace -= 1
+            # Replace with ? based comments for both lines
+            # - export VARIABLE='foo'
+            # ?                  ^^^ 
+            # + #export VARIABLE='bar'
+            # ? +                 ^^^
             elif i+3 < len(sequence) and (line.startswith('- ') and str(sequence[i+1]).startswith('? ') and str(sequence[i+2]).startswith('+ ') and str(sequence[i+3]).startswith('? ')):
-                # Equal
-                seq.append(['seq1', [line], "seq1_equal" + str(eq)])
-                seq.append(['seq2', [sequence[i+2]], "seq2_equal" + str(eq)])
-                eq += 1
-                equal = 1
+                seq.append(['seq1', [line], "seq1_replace" + str(rep)])
+                seq.append(['seq2', [sequence[i+2]], "seq2_replace" + str(rep)])
+                replace = 3 
+                rep += 1
                 seq1before, seq2before, commonbefore = False, False, False
+            
+            # Replace with ? based comment for one line
+            # - export VARIABLE='foo'
+            # + #export VARIABLE='foo'
+            # ? + 
             elif i+2 < len(sequence) and (line.startswith('- ') and str(sequence[i+1]).startswith('+ ') and str(sequence[i+2]).startswith('? ')): 
-                # Replace
                 seq.append(['seq1', [line], "seq1_replace" + str(rep)])
                 seq.append(['seq2', [sequence[i+1]], "seq2_replace" + str(rep)])
+                replace = 2 
                 rep += 1
-                replace = 1
                 seq1before, seq2before, commonbefore = False, False, False
+            
+            # Replace without comments
+            # - export GEM_HOME=$HOME/.gem/ruby/3.4.0
+            # + #export GEM_HOME="$(ruby -e 'puts Gem.user_dir')"
+            elif i+1 < len(sequence) and (line.startswith('- ') and str(sequence[i+1]).startswith('+ ')): 
+                seq.append(['seq1', [line], "seq1_replace" + str(rep)])
+                seq.append(['seq2', [sequence[i+1]], "seq2_replace" + str(rep)])
+                replace = 1 
+                rep += 1
+                seq1before, seq2before, commonbefore = False, False, False
+            
             elif line.startswith('- '):
                 diffstr += line
                 if not seq1before:
@@ -623,7 +605,7 @@ class MergePy(App):
             linenr2 += linenr22
         #for i, line in enumerate(self.seq2.splitlines(), start=1):
         #    print(f"{i:>3}: {line}")
-        #x = re.compile(r'^(equal|replace)\d+$', re.IGNORECASE)
+        #x = re.compile(r'^replace\d+$', re.IGNORECASE)
         #for i in self.seq22:
         #    if x.match(i[2]):
         #        print(i[1]) 
