@@ -4,12 +4,12 @@ Screen {
     # box-sizing: content-box;
     # layers: below above;
     layout: horizontal;
+    overflow: hidden; 
 }
 
 Label{
     text-style: bold;
 }
-
 
 DiffSlice{
     # display: none;
@@ -21,7 +21,7 @@ DiffSlice{
     border: round white;
 }
 
-SetDiff{
+CommonSlice{
     # display: none;
     # layer: below;
     # overflow: scroll;
@@ -31,14 +31,21 @@ SetDiff{
     opacity: 50%;
 }
 
-SideView {
-    height: 50vh; 
-    text-align: left;
+HorizontalScroll{
+    layout: vertical;
+    align: center top; 
+    scrollbar-size-vertical: 1;
+    scrollbar-size-horizontal: 1;
+    overflow: auto;
     width: 100%;
-    overflow: hidden;
 }
 
-CodeView {
+SideView {
+    text-align: left;
+    width: 100%;
+}
+
+MergeView {
     height: 100%; 
     width: 100%;
     text-align: left;
@@ -47,16 +54,7 @@ CodeView {
 
 VerticalGroup{
     align: center middle;
-    height: 100vh;
     width: 50%;
     # overflow: hidden;
 }
 
-#scrollview1, #scrollview2{
-    layout: vertical;
-    align: center top; 
-    height: 50vh;
-    width: 100%;
-    # overflow-y: scroll;
-    overflow: auto;
-}

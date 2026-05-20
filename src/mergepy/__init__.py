@@ -143,7 +143,7 @@ class SideView(ListView):
             if x.match(i[2]):
                 h += 2
         self.height = self.seq.count("\n") + 1 + h if self.seq else 0
-        self.styles.height = self.height
+        self.styles.height = "auto"
         self.width = max(len(line) for line in self.seq.splitlines())
         self.styles.width = self.width
         self.virtual_size = Size(self.width, self.height)
@@ -177,15 +177,15 @@ class SideView(ListView):
         elif event.key == 'shift+down':
             self.parent.scroll_down()
         elif event.key == 'shift+left':
-            self.parent.scroll_left()
+            self.parent.scroll_left(animate=True, speed=6.0)
         elif event.key == 'shift+right':
-            self.parent.scroll_right()
+            self.parent.scroll_right(animate=True, speed=6.0)
         elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
             seq1 = self.parent.parent.get_widget_by_id('seq1')
             seq2 = self.parent.parent.get_widget_by_id('seq2')
-            if self.id == 'seq1' and len(seq2.children) >= 2:
+            if self.id == 'seq1' and len(seq2.children) >= 1:
                 self.parent.parent.get_widget_by_id('seq2').focus()
-            elif self.id == 'seq2' and len(seq1.children) >= 2:
+            elif self.id == 'seq2' and len(seq1.children) >= 1:
                 self.parent.parent.get_widget_by_id('seq1').focus()
                 
         elif event.key == 'alt+up':
@@ -246,9 +246,9 @@ class MergeView(ScrollView):
         if event.key == 'ctrl+left' or event.key == 'ctrl+right':
             seq1 = self.parent.parent.get_widget_by_id('seq1') 
             seq2 = self.parent.parent.get_widget_by_id('seq2') 
-            if len(seq1.children) >= 2: 
+            if len(seq1.children) >= 1: 
                 self.parent.parent.get_widget_by_id('seq1').focus()
-            elif len(seq2.children) >= 2:
+            elif len(seq2.children) >= 1:
                 self.parent.parent.get_widget_by_id('seq2').focus()
         elif event.key == 'up' or event.key == 'shift+up':
             self.parent.scroll_up()
@@ -297,20 +297,23 @@ class MergePy(App):
         self.title = 'diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
 
     def on_key(self, event: events.Key) -> None:
-        #self.refresh_bindings()
-        if event.key == 'enter':
-            # Try and except otherwise command palette freaks out 
-            try: 
-                list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-                # if list still has entries
-                if type(list.index) == int and len(list.children) >= list.index:
-                    x = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
-                    if (list.children[list.index].id and x.match(list.children[list.index].id)):
-                        self.action_replace()
-                    else:
-                        self.action_keep()
-            except:
-                pass
+        # Try and except otherwise command palette freaks out 
+        try: 
+            if not self.get_widget_by_id('mergeview').has_focus_within: 
+                 
+                if not (event.key == 'shift+up' or event.key == 'shift+down' or event.key == 'shift+left' or event.key == 'shift+right'): 
+                    self.refresh_bindings()
+                if event.key == 'enter':
+                    list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+                    # if list still has entries
+                    if type(list.index) == int and len(list.children) >= list.index:
+                        x = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
+                        if (list.children[list.index].id and x.match(list.children[list.index].id)):
+                            self.action_replace()
+                        else:
+                            self.action_keep()
+        except:
+            pass
 
     def on_click(self) -> None:
         self.refresh_bindings()
@@ -639,7 +642,6 @@ class MergePy(App):
     def compose(self) -> ComposeResult:
         # A scrollable container for the file contents
         # yield Header()
-        yield Footer()
        
         with VerticalGroup():
             yield Label(str(self.file_path1))
@@ -650,6 +652,8 @@ class MergePy(App):
                 yield SideView(self.seq2, 'seq2', self.seq22, self.diff, self.lang, 'ansi_dark')
         with ScrollableContainer(id='scrollview3'):
             yield MergeView(self.diff, self.lang, 'ansi_dark')
+       
+        yield Footer()
 
 def main():
     choices = argcomplete.completers.ChoicesCompleter
