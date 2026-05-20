@@ -35,6 +35,8 @@ HorizontalScroll{
     layout: vertical;
     align: center top; 
     scrollbar-size-vertical: 1;
+    # Making the horizontal scrollbar smaller is apparently quite elaborate 
+    # https://github.com/Textualize/textual/issues/6547 
     scrollbar-size-horizontal: 1;
     overflow: auto;
     width: 100%;
