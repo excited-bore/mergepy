@@ -177,9 +177,9 @@ class SideView(ListView):
         elif event.key == 'shift+down':
             self.parent.scroll_down()
         elif event.key == 'shift+left':
-            self.parent.scroll_left(animate=True, speed=6.0)
+            self.parent.scroll_left(animate=True, speed=100.0)
         elif event.key == 'shift+right':
-            self.parent.scroll_right(animate=True, speed=6.0)
+            self.parent.scroll_right()
         elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
             seq1 = self.parent.parent.get_widget_by_id('seq1')
             seq2 = self.parent.parent.get_widget_by_id('seq2')
@@ -226,11 +226,9 @@ class MergeView(ScrollView):
     code = reactive('')
 
     def calibrate_dimensions(self) -> None:
-        self.height = self.code.count("\n") + 1 if self.code else 0
-        self.styles.min_height = 1 
+        self.height = self.code.count("\n") + 2 if not self.code == '' else 0
         self.styles.height = self.height
         self.width = max(len(line) for line in self.code.splitlines()) if self.code else 0
-        self.styles.min_width = 1 
         self.styles.width = self.width
         self.virtual_size = Size(self.width, self.height)
 
@@ -263,11 +261,12 @@ class MergeView(ScrollView):
     def add_diff(self, code) -> None:
         self.code += code
         self.calibrate_dimensions()
+        self.parent.scroll_end()
 
     def remove_diff(self, range) -> None:
-        self.code = "\n".join(self.code.splitlines()[:-range])
-        self.calibrate_dimensions()
-    
+        self.code = "\n".join(self.code.splitlines()[:-range]) + '\n'
+        self.calibrate_dimensions() 
+
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
@@ -427,41 +426,36 @@ class MergePy(App):
         eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
         comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
         if len(diff_lines) > 0: 
+            seq1 = self.get_widget_by_id('seq1') 
+            if seq1.index:
+                seq1.children[seq1.index].highlighted = False
+            seq2 = self.get_widget_by_id('seq2')
+            if seq2.index:
+                seq2.children[seq2.index].highlighted = False  
             target = self.get_widget_by_id('mergeview', MergeView)
-            list = self.get_widget_by_id('seq1') 
-            list2 = self.get_widget_by_id('seq2')
-            if list.index:
-                list.children[list.index].highlighted = False
-            if list2.index:
-                list2.children[list2.index].highlighted = False  
-            seq, id, idx, item, type = diff_lines.pop()
-            range = len(seq.splitlines())
+            
+            text, id, idx, item, type = diff_lines.pop()
+            range = len(text.splitlines())
             if not type == 'delete':
                 target.remove_diff(range)
             list = self.get_widget_by_id(id)
             item.highlighted = False
             list.insert(idx, iter([item]))
             list.calibrate_dimensions()        
-            
-            if len(diff_lines) > 0: 
-                if (eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id)):
-                    #raise SystemExit(item.id) 
-                    seq1, id1, idx1, item1, type1 = diff_lines.pop()
-                    range1 = len(seq1.splitlines())
-                    if not type == 'delete':
-                        target.remove_diff(range1)
-                    list1 = self.get_widget_by_id(id1)
-                    item1.highlighted = False
-                    list1.insert(idx1, iter([item1]))
-                    list1.calibrate_dimensions()
+           
+            # If diff_lines is still not empty 
+            if len(diff_lines) > 0 and ((not type == 'keep' and eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id))):
+                text1, id1, idx1, item1, type1 = diff_lines.pop()
+                list1 = self.get_widget_by_id(id1)
+                item1.highlighted = False
+                list1.insert(idx1, iter([item1]))
+                list1.calibrate_dimensions()
             
             self.refresh_bindings()
             self.check_empty() 
     
 
-    def check_action(
-        self, action: str, parameters: tuple[object, ...]
-    ) -> bool | None:  
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  
         """Check if an action may run."""
         seq = False 
         x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE) 
