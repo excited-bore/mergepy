@@ -482,13 +482,13 @@ class MergePy(App):
             
             full_undo = undones.pop()
            
-            def redo(firstTime):
-                text, id, idx, item, type = full_undo.pop(0)
+            def redo(first):
+                text, id, idx, item, type = full_undo.pop(-1)
                 list = self.get_widget_by_id(id) 
                 list.pop(list.children.index(item)) 
                 diff_lines.append([text, id, idx, item, type]) 
                 comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-                if not type == 'delete' and (firstTime and (comm.match(item.id) or type == 'keep')):
+                if not type == 'delete' and ((first and (comm.match(item.id) or type == 'keep' or type == 'replace'))):
                     target.add_diff(text) 
 
             redo(True) 
