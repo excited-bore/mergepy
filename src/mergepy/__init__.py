@@ -308,8 +308,8 @@ class MergePy(App):
                     list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
                     # if list still has entries
                     if type(list.index) == int and len(list.children) >= list.index:
-                        x = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
-                        if (list.children[list.index].id and x.match(list.children[list.index].id)):
+                        repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
+                        if repl.match(list.children[list.index].id):
                             self.action_replace()
                         else:
                             self.action_keep()
@@ -345,7 +345,7 @@ class MergePy(App):
         list.scroll_item()
 
     def action_replace(self) -> none:
-        target = self.get_widget_by_id('mergeview', mergeview)
+        target = self.get_widget_by_id('mergeview', MergeView)
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
         list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
