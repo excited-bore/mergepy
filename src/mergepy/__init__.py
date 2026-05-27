@@ -178,9 +178,9 @@ class SideView(ListView):
         elif event.key == 'shift+down':
             self.parent.scroll_down()
         elif event.key == 'shift+left':
-            self.parent.scroll_left(animate=True, speed=100.0)
+            self.parent.scroll_page_left()
         elif event.key == 'shift+right':
-            self.parent.scroll_right()
+            self.parent.scroll_page_right()
         elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
             seq1 = self.parent.parent.get_widget_by_id('seq1')
             seq2 = self.parent.parent.get_widget_by_id('seq2')
@@ -249,16 +249,19 @@ class MergeView(ScrollView):
                 self.parent.parent.get_widget_by_id('seq1').focus()
             elif len(seq2.children) >= 1:
                 self.parent.parent.get_widget_by_id('seq2').focus()
-        elif event.key == 'up' or event.key == 'shift+up':
+        elif event.key == 'up': 
             self.parent.scroll_up()
-        elif event.key == 'down' or event.key == 'shift+down':
+        elif event.key == 'shift+up':
+            self.parent.scroll_up()
+        elif event.key == 'down':
+            self.parent.scroll_down()
+        elif event.key == 'shift+down':
             self.parent.scroll_down()
         elif event.key == 'shift+left':
             self.parent.scroll_left()
         elif event.key == 'shift+right':
             self.parent.scroll_right()
-            
-
+           
     def add_diff(self, text) -> None:
         self.text += text
         self.calibrate_dimensions()
@@ -280,23 +283,24 @@ class MergePy(App):
     
     CSS_PATH = "merge.tcss"
 
-    # ("ctrl+q,q", "quit", "Quit", show=True, priority=True),
     # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
         ("Ctrl-↑/↓/←/→", "   ", "Next window"),
         ("Shift-↑/↓/←/→", "    ", "Scroll"),
         ("Alt-↑/↓", "next_conflict", "Next Conflict"),
         ("Spacebar", "sync", "Sync"),
-        ("k", "keep", "Keep"),
+        ("Enter", "replace_keep", "Replace/Keep"),
+        ("r", "replace", "Replace Block"),
+        ("k", "keep", "Keep Block"),
+        ("d", "delete", "Delete Block"),
+        ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
-        ("r", "replace", "Replace Block"),
-        ("d", "delete", "Delete Block"),
     ]
 
     def on_mount(self) -> None:
         self.title = 'diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
-
+    
     def on_key(self, event: events.Key) -> None:
         # Try and except otherwise command palette freaks out 
         try: 
@@ -305,25 +309,24 @@ class MergePy(App):
                 if not (event.key == 'shift+up' or event.key == 'shift+down' or event.key == 'shift+left' or event.key == 'shift+right'): 
                     self.refresh_bindings()
                 if event.key == 'enter':
-                    list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-                    # if list still has entries
-                    if type(list.index) == int and len(list.children) >= list.index:
-                        repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
-                        if repl.match(list.children[list.index].id):
-                            self.action_replace()
-                        else:
-                            self.action_keep()
+                    self.action_replace_keep()
         except:
             pass
 
     def on_click(self) -> None:
-        self.refresh_bindings()
-   
+        try: 
+            if self.get_widget_by_id('scrollview3').has_focus:
+                self.get_widget_by_id('mergeview').focus()
+            self.refresh_bindings()
+        except:
+            # Command palette open 
+            pass
+
     def check_empty(self) -> None:
         seq1 = self.get_widget_by_id('seq1') 
         seq2 = self.get_widget_by_id('seq2') 
         mergeview = self.get_widget_by_id('mergeview') 
-     
+   
         if len(seq1.children) < 2 and len(seq2.children) > 2:
             seq2.focus() 
         elif len(seq1.children) > 2 and len(seq2.children) < 2:
@@ -439,6 +442,16 @@ class MergePy(App):
         self.check_empty() 
         undones.clear()
 
+    def action_replace_keep(self) -> None:
+        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        # if list still has entries
+        if type(list.index) == int and len(list.children) >= list.index:
+            repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
+            if repl.match(list.children[list.index].id):
+                self.action_replace()
+            else:
+                self.action_keep() 
+
     def action_undo(self) -> None:
         eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
         comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
@@ -522,11 +535,7 @@ class MergePy(App):
                 h = list.highlighted_child
                 seq = True
             
-            if (action == "next_conflict" or action == 'sync') and mergeview.has_focus_within:
-                return False
-            if action == "undo" and len(diff_lines) == 0:
-                return False
-            if action == "redo" and len(undones) == 0:
+            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and mergeview.has_focus_within:
                 return False
             if action == 'replace' and (not seq or h == None or not x.match(h.id)):
                 return False
@@ -534,6 +543,10 @@ class MergePy(App):
                 return False
             if action == 'delete' and (not seq or len(list.children) == 0):
                 return False 
+            if action == "undo" and len(diff_lines) == 0:
+                return False
+            if action == "redo" and len(undones) == 0:
+                return False
         except:
             pass
        
