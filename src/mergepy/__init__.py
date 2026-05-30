@@ -527,6 +527,7 @@ class MergePy(App):
                     f.write(target.text)
         # Otherwise default to PySide6
         else:
+            app = QApplication.instance() or QApplication(sys.argv) 
             ext = str(Path(self.file_path1).suffix.lower()) 
             lang = str(guess_language(self.file_path1)) 
             if lang == 'unknown':
