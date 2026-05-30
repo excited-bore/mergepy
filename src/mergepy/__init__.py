@@ -532,7 +532,7 @@ class MergePy(App):
             ext = str(Path(self.file_path1).suffix.lower()) 
             lang = str(guess_language(self.file_path1)) 
             if lang == 'unknown':
-                ext, lang = '' ''
+                ext, lang = '',''
             if not lang == '' and not ext == '':
                 lang = lang.capitalize() + ' Files'     
                 lang = lang + " (*." + ext + ");;" 
