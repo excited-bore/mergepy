@@ -349,7 +349,7 @@ class MergePy(App):
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         list.scroll_item()
 
-    def action_replace(self) -> none:
+    def action_replace(self) -> None:
         target = self.get_widget_by_id('mergeview', MergeView)
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
