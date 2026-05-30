@@ -749,8 +749,12 @@ def main():
     args = parser.parse_args()
     if not args.file1.is_file():
         raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[1])
+    elif os.path.getsize(args.file1) == 0: 
+        raise FileNotFoundError("%s is empty" % sys.argv[1])
     elif not args.file2.is_file():
         raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[2])
+    elif os.path.getsize(args.file2) == 0: 
+        raise FileNotFoundError("%s is empty" % sys.argv[2])
     else:
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
