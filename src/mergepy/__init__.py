@@ -7,12 +7,13 @@ __version__='1.0'
 
 
 import os
+import platform
 import sys
+import subprocess
 import copy
 import re
 from pathlib import Path
 import difflib
-import tempfile
 import argparse 
 import argcomplete
 import codecs
@@ -21,11 +22,11 @@ from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
 from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView
-from textual.widget import Widget
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from rich.syntax import Syntax
 from rich.style import Style
+from PySide6.QtWidgets import QApplication, QFileDialog
 
 def guess_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
@@ -49,9 +50,9 @@ def guess_language(file_path: str) -> str:
         ".yaml": "yaml",
         ".sh": "shell",
         ".env": "shell",
-        ".csh": "csh",
         ".bash": "bash",
         ".zsh": "zsh",
+        ".csh": "csh",
         ".fish": "fish",
     }.get(ext, "unknown")
 
@@ -296,7 +297,8 @@ class MergePy(App):
         ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
-    ]
+        ("ctrl+s", "save", "Save"),
+     ]
 
     def on_mount(self) -> None:
         self.title = 'diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
@@ -512,6 +514,34 @@ class MergePy(App):
              
             self.refresh_bindings()
             self.check_empty() 
+   
+    def action_save(self) -> None: 
+        target = self.get_widget_by_id('mergeview', MergeView) 
+        
+        # If were on linux, use zenity
+        if platform.system() == 'Linux':
+            result = subprocess.run(["zenity", "--file-selection", "--save","--filename=" + str(self.file_path1)], capture_output=True, text=True)
+            filepath = result.stdout.strip()
+            if filepath:
+                with open(filepath, 'w') as f:
+                    f.write(target.text)
+        # Otherwise default to PySide6
+        else:
+            ext = str(Path(self.file_path1).suffix.lower()) 
+            lang = str(guess_language(self.file_path1)) 
+            if lang == 'unknown':
+                ext = '.txt'
+                lang = 'text'
+            lang = lang.capitalize() + ' Files'     
+            filepath, _ = QFileDialog.getSaveFileName(
+                None,
+                "Save file",           # dialog title
+                "",                    # initial directory
+                lang + " (*." + ext + ");;All files (*.*)"
+            )
+            if filepath:
+                with open(filepath, 'w') as f:
+                    f.write(target.text)
 
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  
@@ -718,9 +748,9 @@ def main():
     argcomplete.autocomplete(parser, output_stream=output_stream)
     args = parser.parse_args()
     if not args.file1.is_file():
-        raise FileNotFoundError("File %s doesn't exists" % sys.argv[1])
+        raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[1])
     elif not args.file2.is_file():
-        raise FileNotFoundError("File %s doesn't exists" % sys.argv[2])
+        raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[2])
     else:
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
