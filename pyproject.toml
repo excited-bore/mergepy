@@ -1,18 +1,18 @@
 [build-system]
-requires = ["setuptools", "argcomplete", "GitPython", "texualize"]
+requires = ["setuptools", "argcomplete", "textual", "Zenity", 'PySide6']
 build-backend = "setuptools.build_meta"
 [project]
 name = "mergepy"
-version = "1.0.0"
+version = "1.1"
 authors = [
   { name="Excited Bore", email="brunt-curry-wobble@duck.com" },
 ]
 
-keywords = ["mergepy", "merge files", "git merge", "setuptools", "development"]
-description = "A little commandline tool to copy and paste multiple files and directories to single directory with use of configuration"
+keywords = ["mergepy", "textual", "setuptools", "development"]
+description = "A cli-based python tool designed to merge 2 files together interactively (using python's difflib)"
 readme = "README.md"
 requires-python = ">=3.7"
-dependencies = [ "argcomplete >= 3.2.1" , "GitPython >= 3.1.14", "textualize >= 6.5.0" ]
+dependencies = [ "argcomplete >= 3.6.3", "textual >= 3.0.20", "PySide6 >= 6.11.1", "Zenity >= 2.0.0" ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -23,5 +23,5 @@ classifiers = [
 mergepy = "mergepy:main"
 
 [project.urls]
-"Homepage" = "https://github.com/excited-bore/copy-to"
-"Bug Tracker" = "https://github.com/excited-bore/copy-to/issues"
+"Homepage" = "https://github.com/excited-bore/mergepy"
+"Bug Tracker" = "https://github.com/excited-bore/mergepy/issues"

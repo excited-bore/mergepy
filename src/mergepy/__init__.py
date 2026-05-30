@@ -300,6 +300,64 @@ class MergePy(App):
         ("ctrl+s", "save", "Save"),
      ]
 
+    diff = reactive('') 
+
+    def __init__(self, file_path1: Path, file_path2: Path, output=None, **kwargs):
+        super().__init__(**kwargs)
+
+        self.file_path1 = file_path1
+        self.file_path2 = file_path2
+        self.output = None 
+        if output:
+            self.output = output
+        
+        with open(self.file_path1) as self_file:
+            text1 = self_file.read()
+        
+        with open(self.file_path2) as self_file:
+            text2 = self_file.read()
+        
+        self.seq=self.show_diff(text1, text2)
+        
+        if Path(self.file_path1).suffix:
+            self.lang = guess_language(self.file_path1)
+        elif Path(self.file_path2).suffix:
+            self.lang = guess_language(self.file_path2)
+        # Else we just pretend its a shell language
+        else:
+            self.lang = 'shell'
+
+        self.seq12, self.seq22 = [], []
+        for i in self.seq:
+            if i[0] == 'seq1':
+                self.seq12.append(i)
+            elif i[0] == 'seq2':
+                self.seq22.append(i)
+            if i[0] == 'common':
+                j = i.copy()
+                i[2] = 'seq1_' + i[2]
+                j[2] = 'seq2_' + j[2]
+                self.seq12.append(i)
+                self.seq22.append(j)
+
+        self.seq1, self.seq2, linenr1, linenr2 = '', '', 0, 0
+        for lines in self.seq12:
+            linenr12 = 0
+            for line in lines[1]:
+                self.seq1 += line
+                linenr12 += 1
+            lines[1] = ''.join(lines[1])
+            lines.append((linenr1 + 1, linenr1 + linenr12))
+            linenr1 += linenr12
+        for lines in self.seq22:
+            linenr22 = 0
+            for line in lines[1]:
+                self.seq2 += line
+                linenr22 += 1
+            lines[1] = ''.join(lines[1])
+            lines.append((linenr2 + 1, linenr2 + linenr22))
+            linenr2 += linenr22 
+
     def on_mount(self) -> None:
         self.title = 'diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
     
@@ -516,30 +574,38 @@ class MergePy(App):
             self.check_empty() 
    
     def action_save(self) -> None: 
+        
         target = self.get_widget_by_id('mergeview', MergeView) 
         
-        # If were on linux, use zenity
-        if platform.system() == 'Linux':
-            result = subprocess.run(["zenity", "--file-selection", "--save","--filename=" + str(self.file_path1)], capture_output=True, text=True)
-            filepath = result.stdout.strip()
-            if filepath:
-                with open(filepath, 'w') as f:
-                    f.write(target.text)
-        
-        # Otherwise default to PySide6
-        else:
-            app = QApplication.instance() or QApplication(sys.argv) 
-            ext = str(Path(self.file_path1).suffix.lower()) 
-            lang = str(guess_language(self.file_path1)) 
-            if lang == 'unknown':
-                ext, lang = '',''
-            if not lang == '' and not ext == '':
-                lang = lang.capitalize() + ' Files'     
-                lang = lang + " (*." + ext + ");;" 
-            filepath, _ = QFileDialog.getSaveFileName(None, "Save file", str(self.file_path1), lang + "All files (*.*)")
-            if filepath:
-                with open(filepath, 'w') as f:
-                    f.write(target.text)
+        # If we're on linux, use zenity
+        if self.output: 
+            with open(self.output, 'w') as f:
+                f.write(target.text)
+                self.notify("File saved!", title="Saved") 
+        else: 
+            if platform.system() == 'Linux':
+                result = subprocess.run(["zenity", "--file-selection", "--save","--filename=" + str(self.file_path1)], capture_output=True, text=True)
+                filepath = result.stdout.strip()
+                if filepath:
+                    with open(filepath, 'w') as f:
+                        f.write(target.text)
+                        self.notify("File saved!", title="Saved") 
+            
+            # Otherwise default to PySide6
+            else:
+                app = QApplication.instance() or QApplication(sys.argv) 
+                ext = str(Path(self.file_path1).suffix.lower()) 
+                lang = str(guess_language(self.file_path1)) 
+                if lang == 'unknown':
+                    ext, lang = '',''
+                if not lang == '' and not ext == '':
+                    lang = lang.capitalize() + ' Files'     
+                    lang = lang + " (*." + ext + ");;" 
+                filepath, _ = QFileDialog.getSaveFileName(None, "Save file", str(self.file_path1), lang + "All files (*.*)")
+                if filepath:
+                    with open(filepath, 'w') as f:
+                        f.write(target.text)
+                        self.notify("File saved!", title="Saved") 
 
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  
@@ -552,7 +618,8 @@ class MergePy(App):
         # Same with using queries. 
         # Afaik there doesn't seem to be a way to just 'check' whether self has a widget with a certain id without raising an exception if not found  
         try:
-            mergeview = self.get_widget_by_id('scrollview3')
+            scrollview3 = self.get_widget_by_id('scrollview3')
+            mergeview = self.get_widget_by_id('mergeview')
     
             if self.get_widget_by_id('scrollview1').has_focus_within:
                 list = self.get_widget_by_id('seq1') 
@@ -563,7 +630,7 @@ class MergePy(App):
                 h = list.highlighted_child
                 seq = True
             
-            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and mergeview.has_focus_within:
+            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and scrollview3.has_focus_within:
                 return False
             if action == 'replace' and (not seq or h == None or not x.match(h.id)):
                 return False
@@ -574,6 +641,8 @@ class MergePy(App):
             if action == "undo" and len(diff_lines) == 0:
                 return False
             if action == "redo" and len(undones) == 0:
+                return False
+            if action == "save" and len(mergeview.text) == 0:
                 return False
         except:
             pass
@@ -661,60 +730,7 @@ class MergePy(App):
             i += 1
         return seq
    
-    diff = reactive('') 
-
-    def __init__(self, file_path1: Path, file_path2: Path, **kwargs):
-        super().__init__(**kwargs)
-
-        self.file_path1 = file_path1
-        self.file_path2 = file_path2
-        
-        with open(self.file_path1) as self_file:
-            text1 = self_file.read()
-        
-        with open(self.file_path2) as self_file:
-            text2 = self_file.read()
-        
-        self.seq=self.show_diff(text1, text2)
-        
-        if Path(self.file_path1).suffix:
-            self.lang = guess_language(self.file_path1)
-        elif Path(self.file_path2).suffix:
-            self.lang = guess_language(self.file_path2)
-        # Else we just pretend its a shell language
-        else:
-            self.lang = 'shell'
-
-        self.seq12, self.seq22 = [], []
-        for i in self.seq:
-            if i[0] == 'seq1':
-                self.seq12.append(i)
-            elif i[0] == 'seq2':
-                self.seq22.append(i)
-            if i[0] == 'common':
-                j = i.copy()
-                i[2] = 'seq1_' + i[2]
-                j[2] = 'seq2_' + j[2]
-                self.seq12.append(i)
-                self.seq22.append(j)
-
-        self.seq1, self.seq2, linenr1, linenr2 = '', '', 0, 0
-        for lines in self.seq12:
-            linenr12 = 0
-            for line in lines[1]:
-                self.seq1 += line
-                linenr12 += 1
-            lines[1] = ''.join(lines[1])
-            lines.append((linenr1 + 1, linenr1 + linenr12))
-            linenr1 += linenr12
-        for lines in self.seq22:
-            linenr22 = 0
-            for line in lines[1]:
-                self.seq2 += line
-                linenr22 += 1
-            lines[1] = ''.join(lines[1])
-            lines.append((linenr2 + 1, linenr2 + linenr22))
-            linenr2 += linenr22
+    
          
 
     def compose(self) -> ComposeResult:
@@ -736,8 +752,8 @@ class MergePy(App):
 def main():
     choices = argcomplete.completers.ChoicesCompleter
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--version', action='version', version='%(prog)s {version}'.format(version=__version__))
-    parser.add_argument("-o","--output", type=argparse.FileType('r'), required=False, help="output file", metavar="output file")
+    parser.add_argument('--version', action='version', version='Mergepy: {version}'.format(version=__version__))
+    parser.add_argument("-o","--output", required=False, help="output file", metavar="output file")
     parser.add_argument("file1", type=Path, help="First file to be merged", metavar="first file")
     parser.add_argument("file2", type=Path, help="Second file to be merged", metavar="second file")
     output_stream = None
@@ -745,6 +761,8 @@ def main():
         output_stream = codecs.getwriter("utf-8")(sys.stdout.buffer)
     argcomplete.autocomplete(parser, output_stream=output_stream)
     args = parser.parse_args()
+    if args.version:
+        print('Mergepy: {version}'.format(version=__version__))
     if not args.file1.is_file():
         raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[1])
     elif os.path.getsize(args.file1) == 0: 
@@ -756,7 +774,11 @@ def main():
     else:
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
-        MergePy(file1, file2).run()
+        if args.output:
+            output = os.path.abspath(args.output) 
+            MergePy(file1, file2, output).run()
+        else:
+            MergePy(file1, file2).run()
 
 if __name__ == "__main__":
     main()
