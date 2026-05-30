@@ -525,21 +525,18 @@ class MergePy(App):
             if filepath:
                 with open(filepath, 'w') as f:
                     f.write(target.text)
+        
         # Otherwise default to PySide6
         else:
             app = QApplication.instance() or QApplication(sys.argv) 
             ext = str(Path(self.file_path1).suffix.lower()) 
             lang = str(guess_language(self.file_path1)) 
             if lang == 'unknown':
-                ext = '.txt'
-                lang = 'text'
-            lang = lang.capitalize() + ' Files'     
-            filepath, _ = QFileDialog.getSaveFileName(
-                None,
-                "Save file",           # dialog title
-                "",                    # initial directory
-                lang + " (*." + ext + ");;All files (*.*)"
-            )
+                ext, lang = '' ''
+            if not lang == '' and not ext == '':
+                lang = lang.capitalize() + ' Files'     
+                lang = lang + " (*." + ext + ");;" 
+            filepath, _ = QFileDialog.getSaveFileName(None, "Save file", str(self.file_path1), lang + "All files (*.*)")
             if filepath:
                 with open(filepath, 'w') as f:
                     f.write(target.text)
