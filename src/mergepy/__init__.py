@@ -65,17 +65,16 @@ diff_lines = []
 undones = []
 
 class Slice(ListItem):
-    """Base class for diff slices."""
+    """Base class for diff and common slices."""
 
-    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
+    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.seq = seq
+        self.text = text
         self.id = id
         self.linerange = linerange
-        self.diff = diff
         self.lang = lang
         self.theme = theme
-        self.width = max(len(line) for line in self.seq.splitlines())
+        self.width = max(len(line) for line in self.text.splitlines())
 
     def action_focus_item(self) -> None:
         pattern = re.compile(r"^seq1_*")
@@ -105,29 +104,29 @@ class Slice(ListItem):
 class DiffSlice(Slice):
     """Highlights Diff Slice."""
 
-    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
-        super().__init__(seq, id, linerange, diff, lang, theme, **kwargs)
+    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
+        super().__init__(text, id, linerange, lang, theme, **kwargs)
         self.classes = re.sub(r'.*_(replace)\d+', r'\1', id)
         self.height = (linerange[1] - linerange[0]) + 3
         self.styles.height = (linerange[1] - linerange[0]) + 3
         self.virtual_size = Size(self.width, self.height)
 
     def render(self) -> RenderResult:
-        syntax = Syntax(self.seq, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
+        syntax = Syntax(self.text, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
 
 
 class CommonSlice(Slice):
     """Common Slice."""
 
-    def __init__(self, seq, id, linerange, diff, lang, theme, **kwargs) -> None:
-        super().__init__(seq, id, linerange, diff, lang, theme, **kwargs)
+    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
+        super().__init__(text, id, linerange, lang, theme, **kwargs)
         self.height = (linerange[1] - linerange[0]) + 1
         self.styles.height = (linerange[1] - linerange[0]) + 1
         self.virtual_size = Size(self.width, self.height)
 
     def render(self) -> RenderResult:
-        syntax = Syntax(self.seq, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True)
+        syntax = Syntax(self.text, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True)
         return syntax
 
 class SideView(ListView):
@@ -141,23 +140,22 @@ class SideView(ListView):
     def calibrate_dimensions(self) -> None:
         h = 0
         x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE)
-        for i in self.seq2:
+        for i in self.slices:
             if x.match(i[2]):
                 h += 2
-        self.height = self.seq.count("\n") + 1 + h if self.seq else 0
+        self.height = self.text.count("\n") + 1 + h if self.text else 0
         self.styles.height = "auto"
-        self.width = max(len(line) for line in self.seq.splitlines())
+        self.width = max(len(line) for line in self.text.splitlines())
         self.styles.width = self.width
         self.virtual_size = Size(self.width, self.height)
         self.get_index()
 
-    def __init__(self, seq, id, seq2, diff, lang, theme, **kwargs) -> None:
+    def __init__(self, text, id, slices, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.seq = seq
+        self.text = text
         self.id = id
         self.index = 0
-        self.seq2 = seq2
-        self.diff = diff
+        self.slices = slices
         self.lang = lang
         self.theme = theme
         self.calibrate_dimensions()
@@ -214,12 +212,12 @@ class SideView(ListView):
 
     def compose(self) -> ComposeResult:
         x = re.compile(r'^seq[12]_replace\d+$', re.IGNORECASE)
-        for i in self.seq2:
+        for i in self.slices:
             j = i.copy()
             if x.match(i[2]):
-                yield DiffSlice(self.seq, j[2], j[3], self.diff, self.lang, self.theme)
+                yield DiffSlice(self.text, j[2], j[3], self.lang, self.theme)
             else:
-                yield CommonSlice(self.seq, i[2], i[3], self.diff, self.lang, self.theme)
+                yield CommonSlice(self.text, i[2], i[3], self.lang, self.theme)
 
 
 
@@ -236,9 +234,9 @@ class MergeView(ScrollView):
 
     def __init__(self, text, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.lang = lang
         self.id = 'mergeview'
         self.text = text
+        self.lang = lang
         self.theme = theme
         self.calibrate_dimensions()
     
@@ -275,7 +273,7 @@ class MergeView(ScrollView):
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
         # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
-        #syntax = Syntax(self.seq, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
+        #syntax = Syntax(self.text, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
          
         syntax = Syntax(self.text, self.lang, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax         
@@ -300,7 +298,7 @@ class MergePy(App):
         ("ctrl+s", "save", "Save"),
      ]
 
-    diff = reactive('') 
+    merge = reactive('') 
 
     def __init__(self, file_path1: Path, file_path2: Path, output=None, **kwargs):
         super().__init__(**kwargs)
@@ -327,39 +325,39 @@ class MergePy(App):
         else:
             self.lang = 'shell'
 
-        self.seq12, self.seq22 = [], []
+        self.slices1, self.slices2 = [], []
         for i in self.seq:
             if i[0] == 'seq1':
-                self.seq12.append(i)
+                self.slices1.append(i)
             elif i[0] == 'seq2':
-                self.seq22.append(i)
+                self.slices2.append(i)
             if i[0] == 'common':
                 j = i.copy()
                 i[2] = 'seq1_' + i[2]
                 j[2] = 'seq2_' + j[2]
-                self.seq12.append(i)
-                self.seq22.append(j)
+                self.slices1.append(i)
+                self.slices2.append(j)
 
-        self.seq1, self.seq2, linenr1, linenr2 = '', '', 0, 0
-        for lines in self.seq12:
+        self.text1, self.text2, linenr1, linenr2 = '', '', 0, 0
+        for lines in self.slices1:
             linenr12 = 0
             for line in lines[1]:
-                self.seq1 += line
+                self.text1 += line
                 linenr12 += 1
             lines[1] = ''.join(lines[1])
             lines.append((linenr1 + 1, linenr1 + linenr12))
             linenr1 += linenr12
-        for lines in self.seq22:
+        for lines in self.slices2:
             linenr22 = 0
             for line in lines[1]:
-                self.seq2 += line
+                self.text2 += line
                 linenr22 += 1
             lines[1] = ''.join(lines[1])
             lines.append((linenr2 + 1, linenr2 + linenr22))
             linenr2 += linenr22 
 
     def on_mount(self) -> None:
-        self.title = 'diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
+        self.title = ' diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
     
     def on_key(self, event: events.Key) -> None:
         # Try and except otherwise command palette freaks out 
@@ -375,7 +373,7 @@ class MergePy(App):
 
     def on_click(self) -> None:
         try: 
-            if self.get_widget_by_id('scrollview3').has_focus:
+            if self.get_widget_by_id('scrollviewmerge').has_focus:
                 self.get_widget_by_id('mergeview').focus()
             self.refresh_bindings()
         except:
@@ -418,14 +416,14 @@ class MergePy(App):
         seq, seq2 = '', ''
 
         range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
         diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'replace'])
         list.pop(list.index)
         
         range = diffv.linerange
-        for num, line in enumerate(diffv.seq.splitlines(), 1):
+        for num, line in enumerate(diffv.text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq2 += line[2:] + '\n'
         diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace'])
@@ -446,7 +444,7 @@ class MergePy(App):
         list = self.get_widget_by_id('seq1') if id == 'seq1' else self.get_widget_by_id('seq2')
         
         range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
         
@@ -482,7 +480,7 @@ class MergePy(App):
         
         id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
         range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].seq.splitlines(), 1):
+        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
         diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'delete'])
@@ -618,7 +616,7 @@ class MergePy(App):
         # Same with using queries. 
         # Afaik there doesn't seem to be a way to just 'check' whether self has a widget with a certain id without raising an exception if not found  
         try:
-            scrollview3 = self.get_widget_by_id('scrollview3')
+            scrollviewmerge = self.get_widget_by_id('scrollviewmerge')
             mergeview = self.get_widget_by_id('mergeview')
     
             if self.get_widget_by_id('scrollview1').has_focus_within:
@@ -630,7 +628,7 @@ class MergePy(App):
                 h = list.highlighted_child
                 seq = True
             
-            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and scrollview3.has_focus_within:
+            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and scrollviewmerge.has_focus_within:
                 return False
             if action == 'replace' and (not seq or h == None or not x.match(h.id)):
                 return False
@@ -740,12 +738,12 @@ class MergePy(App):
         with VerticalGroup():
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.seq1, 'seq1', self.seq12, self.diff, self.lang, 'ansi_dark')
+                yield SideView(self.text1, 'seq1', self.slices1, self.lang, 'ansi_dark')
             yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.seq2, 'seq2', self.seq22, self.diff, self.lang, 'ansi_dark')
-        with ScrollableContainer(id='scrollview3'):
-            yield MergeView(self.diff, self.lang, 'ansi_dark')
+                yield SideView(self.text2, 'seq2', self.slices2, self.lang, 'ansi_dark')
+        with ScrollableContainer(id='scrollviewmerge'):
+            yield MergeView(self.merge, self.lang, 'ansi_dark')
        
         yield Footer()
 
@@ -753,16 +751,18 @@ def main():
     choices = argcomplete.completers.ChoicesCompleter
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--version', action='version', version='Mergepy: {version}'.format(version=__version__))
-    parser.add_argument("-o","--output", required=False, help="output file", metavar="output file")
+    parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="output file")
     parser.add_argument("file1", type=Path, help="First file to be merged", metavar="first file")
     parser.add_argument("file2", type=Path, help="Second file to be merged", metavar="second file")
     output_stream = None
     if "_ARGCOMPLETE_POWERSHELL" in os.environ:
         output_stream = codecs.getwriter("utf-8")(sys.stdout.buffer)
     argcomplete.autocomplete(parser, output_stream=output_stream)
-    args = parser.parse_args()
-    if args.version:
+    args = parser.parse_args() 
+    
+    if hasattr(args, ' version'):
         print('Mergepy: {version}'.format(version=__version__))
+    
     if not args.file1.is_file():
         raise FileNotFoundError("%s doesn't exists or is not a file" % sys.argv[1])
     elif os.path.getsize(args.file1) == 0: 
