@@ -21,14 +21,14 @@ from textual import events, on, work, getters
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
-from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView
+from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from rich.syntax import Syntax
 from rich.style import Style
 from PySide6.QtWidgets import QApplication, QFileDialog
 
-def guess_language(file_path: str) -> str:
+def syntax_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
     return {
         ".py": "python",
@@ -318,9 +318,9 @@ class MergePy(App):
         self.seq=self.show_diff(text1, text2)
         
         if Path(self.file_path1).suffix:
-            self.lang = guess_language(self.file_path1)
+            self.lang = syntax_language(self.file_path1)
         elif Path(self.file_path2).suffix:
-            self.lang = guess_language(self.file_path2)
+            self.lang = syntax_language(self.file_path2)
         # Else we just pretend its a shell language
         else:
             self.lang = 'shell'
