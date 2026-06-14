@@ -50,8 +50,13 @@ SideView {
 MergeView {
     height: 100%; 
     width: 100%;
+    min_height: 100%; 
     text-align: left;
     overflow: auto;
+}
+
+TextArea {
+    overflow-x: hidden;
 }
 
 VerticalGroup{

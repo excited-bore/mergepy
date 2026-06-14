@@ -27,6 +27,8 @@ from textual.scroll_view import ScrollView
 from rich.syntax import Syntax
 from rich.style import Style
 from PySide6.QtWidgets import QApplication, QFileDialog
+from dataclasses import dataclass, field
+
 
 def syntax_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
@@ -56,11 +58,11 @@ def syntax_language(file_path: str) -> str:
         ".fish": "fish",
     }.get(ext, "unknown")
 
-# diff_lines = [ text, id, index, widget, action_name ]
+# diff_lines = [ text, id, index, widget, action_name, undostack_item ]
 
 diff_lines = []
 
-# undones = [ [ [ text1, id1, index1, widget1, action_name1 ], [ text2, id2, index2, widget2, action_name2 ] ], ... ] 
+# undones = [ [ [ text1, id1, index1, widget1, action_name1, undostack_item1 ], [ text2, id2, index2, widget2, action_name2, undostack_item2 ] ], ... ] 
 
 undones = []
 
@@ -114,6 +116,15 @@ class DiffSlice(Slice):
     def render(self) -> RenderResult:
         syntax = Syntax(self.text, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
+
+# Textarea Overrides
+
+class TextArea(TextArea):
+    def action_undo(self) -> None:
+        self.parent.parent.parent.parent.action_undo()
+    
+    def action_redo(self) -> None:
+        self.parent.parent.parent.parent.action_redo()
 
 
 class CommonSlice(Slice):
@@ -171,7 +182,7 @@ class SideView(ListView):
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
             self.parent.scroll_to_widget(self.children[self.index+1], center=True)
         elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
-            self.parent.parent.parent.get_widget_by_id('mergeview').focus()
+            self.parent.parent.parent.get_widget_by_id('mergeview').textarea.focus()
         elif event.key == 'shift+up':
             self.parent.scroll_up()
         elif event.key == 'shift+down':
@@ -221,7 +232,7 @@ class SideView(ListView):
 
 
 
-class MergeView(ScrollView):   
+class MergeView(ScrollableContainer):   
 
     text = reactive('')
 
@@ -230,14 +241,16 @@ class MergeView(ScrollView):
         self.styles.height = self.height
         self.width = max(len(line) for line in self.text.splitlines()) if self.text else 0
         self.styles.width = self.width
+        self.styles.min_width = 100
         self.virtual_size = Size(self.width, self.height)
 
     def __init__(self, text, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.id = 'mergeview'
-        self.text = text
+        self.text = text # if not text == '' else '\n' 
         self.lang = lang
         self.theme = theme
+        self.textarea = TextArea.code_editor(text=self.text, language="bash") 
         self.calibrate_dimensions()
     
     def on_key(self, event: events.Key) -> None:
@@ -255,20 +268,39 @@ class MergeView(ScrollView):
         elif event.key == 'down':
             self.parent.scroll_down()
         elif event.key == 'shift+down':
-            self.parent.scroll_down()
+            self.parent.scroll_down() 
+        elif event.key == 'pagedown':
+            self.parent.scroll_page_down()
+        elif event.key == 'pageup':
+            self.parent.scroll_page_up()
         elif event.key == 'shift+left':
-            self.parent.scroll_left()
+            self.parent.scroll_page_left()
         elif event.key == 'shift+right':
-            self.parent.scroll_right()
-           
+            self.parent.scroll_page_right()
+        # elif event.key == 'm':
+        #     raise SystemExit(self.textarea.text.splitlines())
+        #    self.parent.parent.action_undo() 
+
     def add_diff(self, text) -> None:
+        if len(self.textarea.text) > 0 and not self.textarea.text[-1] == '\n': 
+            self.textarea.insert('\n', (self.textarea.document.line_count - 1, len(self.textarea.text.splitlines()[0])), maintain_selection_offset=False) 
+        self.textarea.insert(text, (self.textarea.document.line_count - 1, 0), maintain_selection_offset=False) 
+        # Otherwise gives error 
+        self.textarea.move_cursor((0, 0))
+        diff_lines[-1][-1] = self.textarea.history.undo_stack[-1] 
         self.text += text
         self.calibrate_dimensions()
         self.parent.scroll_end()
 
     def remove_diff(self, range) -> None:
+        #self.textarea.history 
+        self.textarea.move_cursor((0, 0)) 
+        self.textarea.undo() 
         self.text = "\n".join(self.text.splitlines()[:-range]) + '\n'
         self.calibrate_dimensions() 
+
+    #def compose(self) -> ComposeResult:
+    #    yield TextArea.code_editor(self.text, language="python")
 
     def render(self) -> RenderResult:
         # Syntax is a Rich renderable that displays syntax highlighted code
@@ -278,6 +310,9 @@ class MergeView(ScrollView):
         syntax = Syntax(self.text, self.lang, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
         return syntax         
 
+    def compose(self) -> ComposeResult:
+        yield self.textarea 
+       
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
@@ -302,7 +337,7 @@ class MergePy(App):
 
     def __init__(self, file_path1: Path, file_path2: Path, output=None, **kwargs):
         super().__init__(**kwargs)
-
+        self.id = 'app' 
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = None 
@@ -419,14 +454,14 @@ class MergePy(App):
         for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'replace'])
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'replace', ''])
         list.pop(list.index)
         
         range = diffv.linerange
         for num, line in enumerate(diffv.text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq2 += line[2:] + '\n'
-        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace'])
+        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace', ''])
         list2.pop(list2.children.index(diffv))
         target.add_diff(seq)
         
@@ -450,8 +485,7 @@ class MergePy(App):
         
         item = list.children[list.index]
 
-        diff_lines.append([seq, list.id, list.index, copy.copy(item), 'keep'])
-        target.add_diff(seq)
+        diff_lines.append([seq, list.id, list.index, copy.copy(item), 'keep', ''])
         
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
         if comm.match(list.children[list.index].id):
@@ -463,10 +497,12 @@ class MergePy(App):
             item2 = self.get_widget_by_id(id2)
             idx2 = list2.children.index(item2) 
 
-            diff_lines.append([seq, list2.id, idx2, copy.copy(item2), 'keep'])
+            diff_lines.append([seq, list2.id, idx2, copy.copy(item2), 'keep', ''])
             list2.pop(idx2)
             list2.calibrate_dimensions()
 
+        target.add_diff(seq)
+       
         list.pop(list.index)
         list.calibrate_dimensions()
         
@@ -483,7 +519,7 @@ class MergePy(App):
         for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
             if num >= range[0] and num <= range[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'delete'])
+        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'delete', ''])
         list.pop(list.index)
         list.calibrate_dimensions()
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
@@ -492,7 +528,7 @@ class MergePy(App):
             id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
             list2 = self.get_widget_by_id(idlist2)
             item2 = self.get_widget_by_id(id2)
-            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete'])
+            diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete', ''])
             list2.pop(list2.children.index(item2))
             list2.calibrate_dimensions()
         
@@ -511,19 +547,20 @@ class MergePy(App):
                 self.action_keep() 
 
     def action_undo(self) -> None:
-        eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
-        comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
-        if len(diff_lines) > 0: 
+        target = self.get_widget_by_id('mergeview', MergeView)
+        # If texteditor portion should undo before the selected parts of text should 
+        if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
+            target.textarea.undo()
+        elif len(diff_lines) > 0: 
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:
                 seq1.children[seq1.index].highlighted = False
             seq2 = self.get_widget_by_id('seq2')
             if seq2.index:
                 seq2.children[seq2.index].highlighted = False  
-            target = self.get_widget_by_id('mergeview', MergeView)
             
-            text, id, idx, item, type = diff_lines.pop()
-            undones.append([[text, id, idx, item, type]]) 
+            text, id, idx, item, type, undostack_item = diff_lines.pop()
+            undones.append([[text, id, idx, item, type, undostack_item]]) 
             range = len(text.splitlines())
             if not type == 'delete':
                 target.remove_diff(range)
@@ -532,10 +569,12 @@ class MergePy(App):
             list.insert(idx, iter([item]))
             list.calibrate_dimensions()        
            
+            eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
+            comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
             # If diff_lines is still not empty 
             if len(diff_lines) > 0 and ((not type == 'keep' and eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id))):
-                text1, id1, idx1, item1, type1 = diff_lines.pop()
-                undones[-1].append([text1, id1, idx1, item1, type1]) 
+                text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
+                undones[-1].append([text1, id1, idx1, item1, type1, undostack_item1]) 
                 item1.highlighted = False
                 list1 = self.get_widget_by_id(id1)
                 list1.insert(idx1, iter([item1]))
@@ -543,31 +582,34 @@ class MergePy(App):
             
             self.refresh_bindings()
             self.check_empty() 
-   
-
+    
     def action_redo(self) -> None: 
       
         target = self.get_widget_by_id('mergeview', MergeView)
-         
-        if len(undones) > 0:
+        # If texteditor portion should redo before the selected parts of text should 
+        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0].text == undones[-1][-1][0]): 
+            target.textarea.redo()
+        elif len(undones) > 0:
             
             full_undo = undones.pop()
            
-            def redo(first):
-                text, id, idx, item, type = full_undo.pop(-1)
-                list = self.get_widget_by_id(id) 
-                list.pop(list.children.index(item)) 
-                diff_lines.append([text, id, idx, item, type]) 
-                comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-                if not type == 'delete' and ((first and (comm.match(item.id) or type == 'keep' or type == 'replace'))):
-                    target.add_diff(text) 
-
-            redo(True) 
-            
+            text, id, idx, item, type, undostack_item = full_undo.pop(-1)
             if len(full_undo) > 0:
-     
-                redo(False)
+                text2, id2, idx2, item2, type2, undostack_item2 = full_undo.pop(-1)
+            list = self.get_widget_by_id(id) 
+            list.pop(list.children.index(item)) 
+            list2 = self.get_widget_by_id(id2) 
+            list2.pop(list2.children.index(item2)) 
+            
+            diff_lines.append([text, id, idx, item, type, undostack_item])
+            if text2: 
+                diff_lines.append([text2, id2, idx2, item2, type2, undostack_item2])
              
+            comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+
+            if not type == 'delete' and ((comm.match(item.id) or type == 'keep' or type == 'replace')):
+                target.add_diff(text) 
+
             self.refresh_bindings()
             self.check_empty() 
    
@@ -636,9 +678,9 @@ class MergePy(App):
                 return False
             if action == 'delete' and (not seq or len(list.children) == 0):
                 return False 
-            if action == "undo" and len(diff_lines) == 0:
+            if action == "undo" and len(diff_lines) == 0 and len(mergeview.textarea.undo_stack) == 0:
                 return False
-            if action == "redo" and len(undones) == 0:
+            if action == "redo" and len(undones) == 0 and len(mergeview.textarea.redo_stack) == 0:
                 return False
             if action == "save" and len(mergeview.text) == 0:
                 return False
