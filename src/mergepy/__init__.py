@@ -608,7 +608,8 @@ class MergePy(App):
             comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
 
             if not type == 'delete' and ((comm.match(item.id) or type == 'keep' or type == 'replace')):
-                target.add_diff(text) 
+                target.textarea.redo() 
+                # target.add_diff(text) 
 
             self.refresh_bindings()
             self.check_empty() 
