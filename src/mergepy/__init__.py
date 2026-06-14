@@ -21,6 +21,7 @@ from textual import events, on, work, getters
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
+from textual.binding import Binding
 from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
@@ -120,6 +121,114 @@ class DiffSlice(Slice):
 # Textarea Overrides
 
 class TextArea(TextArea):
+    #BINDINGS = [
+    #    # Cursor movement
+    #    Binding("up", "cursor_up", "Cursor up", show=False),
+    #    Binding("down", "cursor_down", "Cursor down", show=False),
+    #    Binding("left", "cursor_left", "Cursor left", show=False),
+    #    Binding("right", "cursor_right", "Cursor right", show=False),
+    #    Binding("ctrl+left", "cursor_word_left", "Cursor word left", show=False),
+    #    Binding("ctrl+right", "cursor_word_right", "Cursor word right", show=False),
+    #    Binding("home,ctrl+a", "cursor_line_start", "Cursor line start", show=False),
+    #    Binding("end,ctrl+e", "cursor_line_end", "Cursor line end", show=False),
+    #    Binding("pageup", "cursor_page_up", "Cursor page up", show=False),
+    #    Binding("pagedown", "cursor_page_down", "Cursor page down", show=False),
+    #    # Making selections (generally holding the shift key and moving cursor)
+    #    Binding(
+    #        "ctrl+shift+left",
+    #        "cursor_word_left(True)",
+    #        "Cursor left word select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "ctrl+shift+right",
+    #        "cursor_word_right(True)",
+    #        "Cursor right word select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "shift+home",
+    #        "cursor_line_start(True)",
+    #        "Cursor line start select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "shift+end", "cursor_line_end(True)", "Cursor line end select", show=False
+    #    ),
+    #    Binding("shift+up", "cursor_up(True)", "Cursor up select", show=False),
+    #    Binding("shift+down", "cursor_down(True)", "Cursor down select", show=False),
+    #    Binding("shift+left", "cursor_left(True)", "Cursor left select", show=False),
+    #    Binding("shift+right", "cursor_right(True)", "Cursor right select", show=False),
+    #    # Shortcut ways of making selections
+    #    # Binding("f5", "select_word", "select word", show=False),
+    #    Binding("f6", "select_line", "Select line", show=False),
+    #    Binding("f7", "select_all", "Select all", show=False),
+    #    # Deletion
+    #    Binding("backspace", "delete_left", "Delete character left", show=False),
+    #    Binding(
+    #        "ctrl+w", "delete_word_left", "Delete left to start of word", show=False
+    #    ),
+    #    Binding("delete,ctrl+d", "delete_right", "Delete character right", show=False),
+    #    Binding(
+    #        "ctrl+f", "delete_word_right", "Delete right to start of word", show=False
+    #    ),
+    #    Binding("ctrl+x", "cut", "Cut", show=False),
+    #    Binding("ctrl+c,super+c", "copy", "Copy", show=False),
+    #    Binding("ctrl+v", "paste", "Paste", show=False),
+    #    Binding(
+    #        "ctrl+u", "delete_to_start_of_line", "Delete to line start", show=False
+    #    ),
+    #    Binding(
+    #        "ctrl+k",
+    #        "delete_to_end_of_line_or_delete_line",
+    #        "Delete to line end",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "ctrl+shift+k",
+    #        "delete_line",
+    #        "Delete line",
+    #        show=False,
+    #    ),
+    #    Binding("ctrl+z", "undo", "Undo", show=True),
+    #    Binding("ctrl+y", "redo", "Redo", show=True),
+    #]
+    """
+    | Key(s)                 | Description                                  |
+    | :-                     | :-                                           |
+    | up                     | Move the cursor up.                          |
+    | down                   | Move the cursor down.                        |
+    | left                   | Move the cursor left.                        |
+    | ctrl+left              | Move the cursor to the start of the word.    |
+    | ctrl+shift+left        | Move the cursor to the start of the word and select.    |
+    | right                  | Move the cursor right.                       |
+    | ctrl+right             | Move the cursor to the end of the word.      |
+    | ctrl+shift+right       | Move the cursor to the end of the word and select.      |
+    | home,ctrl+a            | Move the cursor to the start of the line.    |
+    | end,ctrl+e             | Move the cursor to the end of the line.      |
+    | shift+home             | Move the cursor to the start of the line and select.      |
+    | shift+end              | Move the cursor to the end of the line and select.      |
+    | pageup                 | Move the cursor one page up.                 |
+    | pagedown               | Move the cursor one page down.               |
+    | shift+up               | Select while moving the cursor up.           |
+    | shift+down             | Select while moving the cursor down.         |
+    | shift+left             | Select while moving the cursor left.         |
+    | shift+right            | Select while moving the cursor right.        |
+    | backspace              | Delete character to the left of cursor.      |
+    | ctrl+w                 | Delete from cursor to start of the word.     |
+    | delete,ctrl+d          | Delete character to the right of cursor.     |
+    | ctrl+f                 | Delete from cursor to end of the word.       |
+    | ctrl+shift+k           | Delete the current line.                     |
+    | ctrl+u                 | Delete from cursor to the start of the line. |
+    | ctrl+k                 | Delete from cursor to the end of the line.   |
+    | f6                     | Select the current line.                     |
+    | f7                     | Select all text in the document.             |
+    | ctrl+z                 | Undo.                                        |
+    | ctrl+y                 | Redo.                                        |
+    | ctrl+x                 | Cut selection or line if no selection.       |
+    | ctrl+c                 | Copy selection to clipboard.                 |
+    | ctrl+v                 | Paste from clipboard.                        |
+    """ 
     def action_undo(self) -> None:
         self.parent.parent.parent.parent.action_undo()
     
@@ -550,8 +659,12 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should undo before the selected parts of text should 
         if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
+            target.textarea.move_cursor(target.textarea.history.undo_stack[-1][-1]._edit_result.end_location) 
             target.textarea.undo()
         elif len(diff_lines) > 0: 
+            
+            target.textarea.scroll_end(animate=False) 
+            
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:
                 seq1.children[seq1.index].highlighted = False
@@ -588,8 +701,11 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should redo before the selected parts of text should 
         if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0].text == undones[-1][-1][0]): 
+            target.textarea.move_cursor(target.textarea.history.redo_stack[-1][-1]._edit_result.end_location) 
             target.textarea.redo()
         elif len(undones) > 0:
+           
+            target.textarea.scroll_end(animate=False) 
             
             full_undo = undones.pop()
            
@@ -679,11 +795,11 @@ class MergePy(App):
                 return False
             if action == 'delete' and (not seq or len(list.children) == 0):
                 return False 
-            if action == "undo" and len(diff_lines) == 0 and len(mergeview.textarea.undo_stack) == 0:
+            if action == "undo" and not diff_lines and not mergeview.textarea.history.undo_stack:
                 return False
-            if action == "redo" and len(undones) == 0 and len(mergeview.textarea.redo_stack) == 0:
+            if action == "redo" and not mergeview.textarea.history.redo_stack:
                 return False
-            if action == "save" and len(mergeview.text) == 0:
+            if action == "save" and len(mergeview.textarea.text) == 0:
                 return False
         except:
             pass
