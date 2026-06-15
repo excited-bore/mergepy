@@ -284,13 +284,17 @@ class SideView(ListView):
         self.children[self.index].action_focus_item()
     
     def on_key(self, event: events.Key) -> None:
+        seq1 = self.parent.parent.get_widget_by_id('seq1')
+        seq2 = self.parent.parent.get_widget_by_id('seq2')
         if event.key == 'space': 
             self.scroll_item()
         elif event.key == 'up' and self.index-1 >= 0:
             self.parent.scroll_to_widget(self.children[self.index-1], center=True)
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
             self.parent.scroll_to_widget(self.children[self.index+1], center=True)
-        elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
+        elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right': 
+            seq1.highlighted_child.highlighted = False 
+            seq2.highlighted_child.highlighted = False 
             self.parent.parent.parent.get_widget_by_id('mergeview').textarea.focus()
         elif event.key == 'shift+up':
             self.parent.scroll_up()
@@ -301,8 +305,6 @@ class SideView(ListView):
         elif event.key == 'shift+right':
             self.parent.scroll_page_right()
         elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
-            seq1 = self.parent.parent.get_widget_by_id('seq1')
-            seq2 = self.parent.parent.get_widget_by_id('seq2')
             if self.id == 'seq1' and len(seq2.children) >= 1:
                 self.parent.parent.get_widget_by_id('seq2').focus()
             elif self.id == 'seq2' and len(seq1.children) >= 1:
@@ -367,9 +369,11 @@ class MergeView(ScrollableContainer):
             seq1 = self.parent.parent.get_widget_by_id('seq1') 
             seq2 = self.parent.parent.get_widget_by_id('seq2') 
             if len(seq1.children) >= 1: 
-                self.parent.parent.get_widget_by_id('seq1').focus()
+                seq1.focus()
+                seq1.highlighted_child.highlighted = True
             elif len(seq2.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq2').focus()
+                seq2.focus()
+                seq2.highlighted_child.highlighted = True
         elif event.key == 'up': 
             self.parent.scroll_up()
         elif event.key == 'shift+up':
@@ -662,8 +666,9 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should undo before the selected parts of text should 
         if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
-            target.textarea.move_cursor(target.textarea.history.undo_stack[-1][-1]._edit_result.end_location) 
+            target.textarea.scroll_cursor_visible()
             target.textarea.undo()
+            target.textarea.scroll_cursor_visible()
         elif len(diff_lines) > 0: 
             
             target.textarea.scroll_end(animate=False) 
@@ -704,8 +709,9 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should redo before the selected parts of text should 
         if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0].text == undones[-1][-1][0]): 
-            target.textarea.move_cursor(target.textarea.history.redo_stack[-1][-1]._edit_result.end_location) 
+            target.textarea.scroll_cursor_visible() 
             target.textarea.redo()
+            target.textarea.scroll_cursor_visible() 
         elif len(undones) > 0:
            
             target.textarea.scroll_end(animate=False) 
