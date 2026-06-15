@@ -352,6 +352,7 @@ class MergeView(ScrollableContainer):
         self.width = max(len(line) for line in self.text.splitlines()) if self.text else 0
         self.styles.width = self.width
         self.styles.min_width = 100
+        self.textarea._rewrap_and_refresh_virtual_size()  
         self.virtual_size = Size(self.width, self.height)
 
     def __init__(self, text, lang, theme, **kwargs) -> None:
@@ -373,21 +374,19 @@ class MergeView(ScrollableContainer):
             elif len(seq2.children) >= 1:
                 seq2.focus()
                 seq2.highlighted_child.highlighted = True
-        elif event.key == 'up': 
+        elif event.key == 'up' or event.key == 'down':
+            self.textarea.scroll_cursor_visible()
+        elif event.key == 'alt+up':
             self.parent.scroll_up()
-        elif event.key == 'shift+up':
-            self.parent.scroll_up()
-        elif event.key == 'down':
-            self.parent.scroll_down()
-        elif event.key == 'shift+down':
+        elif event.key == 'alt+down':
             self.parent.scroll_down() 
         elif event.key == 'pagedown':
             self.parent.scroll_page_down()
         elif event.key == 'pageup':
             self.parent.scroll_page_up()
-        elif event.key == 'shift+left':
+        elif event.key == 'alt+left':
             self.parent.scroll_page_left()
-        elif event.key == 'shift+right':
+        elif event.key == 'alt+right':
             self.parent.scroll_page_right()
         # elif event.key == 'm':
         #     raise SystemExit(self.textarea.text.splitlines())
@@ -410,6 +409,7 @@ class MergeView(ScrollableContainer):
         self.textarea.undo() 
         self.text = "\n".join(self.text.splitlines()[:-range]) + '\n'
         self.calibrate_dimensions() 
+        self.parent.scroll_end()
 
     #def compose(self) -> ComposeResult:
     #    yield TextArea.code_editor(self.text, language="python")
@@ -665,7 +665,7 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should undo before the selected parts of text should 
         if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
-            target.textarea.scroll_cursor_visible()
+            target.textarea.move_cursor(target.textarea.history.undo_stack[-1][-1]._edit_result.end_location)
             target.textarea.undo()
             target.textarea.scroll_cursor_visible()
         elif len(diff_lines) > 0: 
@@ -706,10 +706,12 @@ class MergePy(App):
                 list2.children[idx2].highlighted = True 
                 list2.scroll_to_widget(list2.children[idx2]) 
                 list2.calibrate_dimensions()
-            
+           
+            target.textarea.move_cursor((target.textarea.document.line_count - 1, 0)) 
             list1.scroll_item() 
             self.refresh_bindings()
             self.check_empty() 
+        target.calibrate_dimensions()    
     
     def action_redo(self) -> None: 
       
@@ -717,7 +719,7 @@ class MergePy(App):
         # If texteditor portion should redo before the selected parts of text should 
         # raise SystemExit([target.textarea.history.redo_stack[-1][0], undones[-1][-1][5][0] ]) 
         if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0] == undones[-1][-1][5][0]): 
-            target.textarea.scroll_cursor_visible() 
+            target.textarea.move_cursor(target.textarea.history.redo_stack[-1][-1]._edit_result.end_location)
             target.textarea.redo()
             target.textarea.scroll_cursor_visible() 
         elif len(undones) > 0:
@@ -749,6 +751,7 @@ class MergePy(App):
 
             self.refresh_bindings()
             self.check_empty() 
+        target.calibrate_dimensions()    
    
     def action_save(self) -> None: 
         
