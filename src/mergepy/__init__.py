@@ -292,7 +292,7 @@ class SideView(ListView):
             self.parent.scroll_to_widget(self.children[self.index-1], center=True)
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
             self.parent.scroll_to_widget(self.children[self.index+1], center=True)
-        elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right': 
+        elif event.key == 'ctrl+right': 
             seq1.highlighted_child.highlighted = False 
             seq2.highlighted_child.highlighted = False 
             self.parent.parent.parent.get_widget_by_id('mergeview').textarea.focus()
@@ -304,11 +304,10 @@ class SideView(ListView):
             self.parent.scroll_page_left()
         elif event.key == 'shift+right':
             self.parent.scroll_page_right()
-        elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
-            if self.id == 'seq1' and len(seq2.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq2').focus()
-            elif self.id == 'seq2' and len(seq1.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq1').focus()
+        elif event.key == 'ctrl+up' and self.id == 'seq2' and len(seq1.children) >= 1:
+            self.parent.parent.get_widget_by_id('seq1').focus()
+        elif event.key == 'ctrl+down' and self.id == 'seq1' and len(seq2.children) >= 1:
+            self.parent.parent.get_widget_by_id('seq2').focus()
                 
         elif event.key == 'alt+up':
             for i in reversed(self.children):
@@ -680,27 +679,35 @@ class MergePy(App):
             if seq2.index:
                 seq2.children[seq2.index].highlighted = False  
             
-            text, id, idx, item, type, undostack_item = diff_lines.pop()
-            undones.append([[text, id, idx, item, type, undostack_item]]) 
-            range = len(text.splitlines())
-            if not type == 'delete':
-                target.remove_diff(range)
-            item.highlighted = False
-            list = self.get_widget_by_id(id)
-            list.insert(idx, iter([item]))
-            list.calibrate_dimensions()        
-           
+            text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
+            undones.append([[text1, id1, idx1, item1, type1, undostack_item1]]) 
+            range1 = len(text1.splitlines())
+            if not type1 == 'delete':
+                target.remove_diff(range1)
+            list1 = self.get_widget_by_id(id1)
+            list1.insert(idx1, iter([item1]))
+            for i in list1.children:
+                i.highlighted = False
+            list1.children[idx1].highlighted = True 
+            list1.scroll_to_widget(list1.children[idx1]) 
+            list1.calibrate_dimensions()        
+          
             eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
             comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
             # If diff_lines is still not empty 
-            if len(diff_lines) > 0 and ((not type == 'keep' and eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id))):
-                text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
-                undones[-1].append([text1, id1, idx1, item1, type1, undostack_item1]) 
-                item1.highlighted = False
-                list1 = self.get_widget_by_id(id1)
-                list1.insert(idx1, iter([item1]))
-                list1.calibrate_dimensions()
+            if len(diff_lines) > 0 and ((not type1 == 'keep' and eq_rep.match(item1.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item1.id) and comm.match(diff_lines[-1][3].id))):
+                text2, id2, idx2, item2, type2, undostack_item2 = diff_lines.pop()
+                # undostack_item2 should be '' 
+                undones[-1].append([text2, id2, idx2, item2, type2, undostack_item1]) 
+                list2 = self.get_widget_by_id(id2)
+                list2.insert(idx2, iter([item2]))
+                for i in list2.children:
+                    i.highlighted = False
+                list2.children[idx2].highlighted = True 
+                list2.scroll_to_widget(list2.children[idx2]) 
+                list2.calibrate_dimensions()
             
+            list1.scroll_item() 
             self.refresh_bindings()
             self.check_empty() 
     
@@ -708,7 +715,8 @@ class MergePy(App):
       
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should redo before the selected parts of text should 
-        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0].text == undones[-1][-1][0]): 
+        # raise SystemExit([target.textarea.history.redo_stack[-1][0], undones[-1][-1][5][0] ]) 
+        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0] == undones[-1][-1][5][0]): 
             target.textarea.scroll_cursor_visible() 
             target.textarea.redo()
             target.textarea.scroll_cursor_visible() 
@@ -717,22 +725,25 @@ class MergePy(App):
             target.textarea.scroll_end(animate=False) 
             
             full_undo = undones.pop()
-           
-            text, id, idx, item, type, undostack_item = full_undo.pop(-1)
+            
+            text1, id1, idx1, item1, type1, undostack_item1 = full_undo.pop(-1)
             if len(full_undo) > 0:
                 text2, id2, idx2, item2, type2, undostack_item2 = full_undo.pop(-1)
-            list = self.get_widget_by_id(id) 
-            list.pop(list.children.index(item)) 
+            
+            if undostack_item2 and isinstance(undostack_item2, list):
+                undostack_item1 = undostack_item2 
+            list1 = self.get_widget_by_id(id1) 
+            list1.pop(list1.children.index(item1)) 
             list2 = self.get_widget_by_id(id2) 
             list2.pop(list2.children.index(item2)) 
             
-            diff_lines.append([text, id, idx, item, type, undostack_item])
+            diff_lines.append([text1, id1, idx1, item1, type1, undostack_item1])
             if text2: 
-                diff_lines.append([text2, id2, idx2, item2, type2, undostack_item2])
+                diff_lines.append([text2, id2, idx2, item2, type2, undostack_item1])
              
             comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
 
-            if not type == 'delete' and ((comm.match(item.id) or type == 'keep' or type == 'replace')):
+            if not type == 'delete' and ((comm.match(item1.id) or type == 'keep' or type == 'replace')):
                 target.textarea.redo() 
                 # target.add_diff(text) 
 
