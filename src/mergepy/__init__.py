@@ -439,6 +439,9 @@ class MergePy(App):
         ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
+        # I put these here sinds textual's textarea uses ctrl+z and ctrl+y internally with show=False 
+        ("^z", "undo", "Undo"),
+        ("^y", "redo", "Redo"),
         ("ctrl+s", "save", "Save"),
      ]
 
