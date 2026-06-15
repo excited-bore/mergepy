@@ -21,6 +21,7 @@ from textual import events, on, work, getters
 from textual.app import App, ComposeResult, RenderResult
 from textual.containers import HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
+from textual.binding import Binding
 from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
@@ -120,6 +121,114 @@ class DiffSlice(Slice):
 # Textarea Overrides
 
 class TextArea(TextArea):
+    #BINDINGS = [
+    #    # Cursor movement
+    #    Binding("up", "cursor_up", "Cursor up", show=False),
+    #    Binding("down", "cursor_down", "Cursor down", show=False),
+    #    Binding("left", "cursor_left", "Cursor left", show=False),
+    #    Binding("right", "cursor_right", "Cursor right", show=False),
+    #    Binding("ctrl+left", "cursor_word_left", "Cursor word left", show=False),
+    #    Binding("ctrl+right", "cursor_word_right", "Cursor word right", show=False),
+    #    Binding("home,ctrl+a", "cursor_line_start", "Cursor line start", show=False),
+    #    Binding("end,ctrl+e", "cursor_line_end", "Cursor line end", show=False),
+    #    Binding("pageup", "cursor_page_up", "Cursor page up", show=False),
+    #    Binding("pagedown", "cursor_page_down", "Cursor page down", show=False),
+    #    # Making selections (generally holding the shift key and moving cursor)
+    #    Binding(
+    #        "ctrl+shift+left",
+    #        "cursor_word_left(True)",
+    #        "Cursor left word select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "ctrl+shift+right",
+    #        "cursor_word_right(True)",
+    #        "Cursor right word select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "shift+home",
+    #        "cursor_line_start(True)",
+    #        "Cursor line start select",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "shift+end", "cursor_line_end(True)", "Cursor line end select", show=False
+    #    ),
+    #    Binding("shift+up", "cursor_up(True)", "Cursor up select", show=False),
+    #    Binding("shift+down", "cursor_down(True)", "Cursor down select", show=False),
+    #    Binding("shift+left", "cursor_left(True)", "Cursor left select", show=False),
+    #    Binding("shift+right", "cursor_right(True)", "Cursor right select", show=False),
+    #    # Shortcut ways of making selections
+    #    # Binding("f5", "select_word", "select word", show=False),
+    #    Binding("f6", "select_line", "Select line", show=False),
+    #    Binding("f7", "select_all", "Select all", show=False),
+    #    # Deletion
+    #    Binding("backspace", "delete_left", "Delete character left", show=False),
+    #    Binding(
+    #        "ctrl+w", "delete_word_left", "Delete left to start of word", show=False
+    #    ),
+    #    Binding("delete,ctrl+d", "delete_right", "Delete character right", show=False),
+    #    Binding(
+    #        "ctrl+f", "delete_word_right", "Delete right to start of word", show=False
+    #    ),
+    #    Binding("ctrl+x", "cut", "Cut", show=False),
+    #    Binding("ctrl+c,super+c", "copy", "Copy", show=False),
+    #    Binding("ctrl+v", "paste", "Paste", show=False),
+    #    Binding(
+    #        "ctrl+u", "delete_to_start_of_line", "Delete to line start", show=False
+    #    ),
+    #    Binding(
+    #        "ctrl+k",
+    #        "delete_to_end_of_line_or_delete_line",
+    #        "Delete to line end",
+    #        show=False,
+    #    ),
+    #    Binding(
+    #        "ctrl+shift+k",
+    #        "delete_line",
+    #        "Delete line",
+    #        show=False,
+    #    ),
+    #    Binding("ctrl+z", "undo", "Undo", show=True),
+    #    Binding("ctrl+y", "redo", "Redo", show=True),
+    #]
+    """
+    | Key(s)                 | Description                                  |
+    | :-                     | :-                                           |
+    | up                     | Move the cursor up.                          |
+    | down                   | Move the cursor down.                        |
+    | left                   | Move the cursor left.                        |
+    | ctrl+left              | Move the cursor to the start of the word.    |
+    | ctrl+shift+left        | Move the cursor to the start of the word and select.    |
+    | right                  | Move the cursor right.                       |
+    | ctrl+right             | Move the cursor to the end of the word.      |
+    | ctrl+shift+right       | Move the cursor to the end of the word and select.      |
+    | home,ctrl+a            | Move the cursor to the start of the line.    |
+    | end,ctrl+e             | Move the cursor to the end of the line.      |
+    | shift+home             | Move the cursor to the start of the line and select.      |
+    | shift+end              | Move the cursor to the end of the line and select.      |
+    | pageup                 | Move the cursor one page up.                 |
+    | pagedown               | Move the cursor one page down.               |
+    | shift+up               | Select while moving the cursor up.           |
+    | shift+down             | Select while moving the cursor down.         |
+    | shift+left             | Select while moving the cursor left.         |
+    | shift+right            | Select while moving the cursor right.        |
+    | backspace              | Delete character to the left of cursor.      |
+    | ctrl+w                 | Delete from cursor to start of the word.     |
+    | delete,ctrl+d          | Delete character to the right of cursor.     |
+    | ctrl+f                 | Delete from cursor to end of the word.       |
+    | ctrl+shift+k           | Delete the current line.                     |
+    | ctrl+u                 | Delete from cursor to the start of the line. |
+    | ctrl+k                 | Delete from cursor to the end of the line.   |
+    | f6                     | Select the current line.                     |
+    | f7                     | Select all text in the document.             |
+    | ctrl+z                 | Undo.                                        |
+    | ctrl+y                 | Redo.                                        |
+    | ctrl+x                 | Cut selection or line if no selection.       |
+    | ctrl+c                 | Copy selection to clipboard.                 |
+    | ctrl+v                 | Paste from clipboard.                        |
+    """ 
     def action_undo(self) -> None:
         self.parent.parent.parent.parent.action_undo()
     
@@ -175,13 +284,17 @@ class SideView(ListView):
         self.children[self.index].action_focus_item()
     
     def on_key(self, event: events.Key) -> None:
+        seq1 = self.parent.parent.get_widget_by_id('seq1')
+        seq2 = self.parent.parent.get_widget_by_id('seq2')
         if event.key == 'space': 
             self.scroll_item()
         elif event.key == 'up' and self.index-1 >= 0:
             self.parent.scroll_to_widget(self.children[self.index-1], center=True)
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
             self.parent.scroll_to_widget(self.children[self.index+1], center=True)
-        elif event.key == 'left' or event.key == 'ctrl+left' or event.key == 'right' or event.key == 'ctrl+right':
+        elif event.key == 'ctrl+right': 
+            seq1.highlighted_child.highlighted = False 
+            seq2.highlighted_child.highlighted = False 
             self.parent.parent.parent.get_widget_by_id('mergeview').textarea.focus()
         elif event.key == 'shift+up':
             self.parent.scroll_up()
@@ -191,13 +304,10 @@ class SideView(ListView):
             self.parent.scroll_page_left()
         elif event.key == 'shift+right':
             self.parent.scroll_page_right()
-        elif event.key == 'ctrl+up' or event.key == 'ctrl+down':
-            seq1 = self.parent.parent.get_widget_by_id('seq1')
-            seq2 = self.parent.parent.get_widget_by_id('seq2')
-            if self.id == 'seq1' and len(seq2.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq2').focus()
-            elif self.id == 'seq2' and len(seq1.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq1').focus()
+        elif event.key == 'ctrl+up' and self.id == 'seq2' and len(seq1.children) >= 1:
+            self.parent.parent.get_widget_by_id('seq1').focus()
+        elif event.key == 'ctrl+down' and self.id == 'seq1' and len(seq2.children) >= 1:
+            self.parent.parent.get_widget_by_id('seq2').focus()
                 
         elif event.key == 'alt+up':
             for i in reversed(self.children):
@@ -242,6 +352,7 @@ class MergeView(ScrollableContainer):
         self.width = max(len(line) for line in self.text.splitlines()) if self.text else 0
         self.styles.width = self.width
         self.styles.min_width = 100
+        self.textarea._rewrap_and_refresh_virtual_size()  
         self.virtual_size = Size(self.width, self.height)
 
     def __init__(self, text, lang, theme, **kwargs) -> None:
@@ -258,24 +369,24 @@ class MergeView(ScrollableContainer):
             seq1 = self.parent.parent.get_widget_by_id('seq1') 
             seq2 = self.parent.parent.get_widget_by_id('seq2') 
             if len(seq1.children) >= 1: 
-                self.parent.parent.get_widget_by_id('seq1').focus()
+                seq1.focus()
+                seq1.highlighted_child.highlighted = True
             elif len(seq2.children) >= 1:
-                self.parent.parent.get_widget_by_id('seq2').focus()
-        elif event.key == 'up': 
+                seq2.focus()
+                seq2.highlighted_child.highlighted = True
+        elif event.key == 'up' or event.key == 'down':
+            self.textarea.scroll_cursor_visible()
+        elif event.key == 'alt+up':
             self.parent.scroll_up()
-        elif event.key == 'shift+up':
-            self.parent.scroll_up()
-        elif event.key == 'down':
-            self.parent.scroll_down()
-        elif event.key == 'shift+down':
+        elif event.key == 'alt+down':
             self.parent.scroll_down() 
         elif event.key == 'pagedown':
             self.parent.scroll_page_down()
         elif event.key == 'pageup':
             self.parent.scroll_page_up()
-        elif event.key == 'shift+left':
+        elif event.key == 'alt+left':
             self.parent.scroll_page_left()
-        elif event.key == 'shift+right':
+        elif event.key == 'alt+right':
             self.parent.scroll_page_right()
         # elif event.key == 'm':
         #     raise SystemExit(self.textarea.text.splitlines())
@@ -298,6 +409,7 @@ class MergeView(ScrollableContainer):
         self.textarea.undo() 
         self.text = "\n".join(self.text.splitlines()[:-range]) + '\n'
         self.calibrate_dimensions() 
+        self.parent.scroll_end()
 
     #def compose(self) -> ComposeResult:
     #    yield TextArea.code_editor(self.text, language="python")
@@ -330,6 +442,9 @@ class MergePy(App):
         ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
+        # I put these here sinds textual's textarea uses ctrl+z and ctrl+y internally with show=False 
+        ("^z", "undo", "Undo"),
+        ("^y", "redo", "Redo"),
         ("ctrl+s", "save", "Save"),
      ]
 
@@ -550,8 +665,13 @@ class MergePy(App):
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should undo before the selected parts of text should 
         if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
+            target.textarea.move_cursor(target.textarea.history.undo_stack[-1][-1]._edit_result.end_location)
             target.textarea.undo()
+            target.textarea.scroll_cursor_visible()
         elif len(diff_lines) > 0: 
+            
+            target.textarea.scroll_end(animate=False) 
+            
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:
                 seq1.children[seq1.index].highlighted = False
@@ -559,59 +679,79 @@ class MergePy(App):
             if seq2.index:
                 seq2.children[seq2.index].highlighted = False  
             
-            text, id, idx, item, type, undostack_item = diff_lines.pop()
-            undones.append([[text, id, idx, item, type, undostack_item]]) 
-            range = len(text.splitlines())
-            if not type == 'delete':
-                target.remove_diff(range)
-            item.highlighted = False
-            list = self.get_widget_by_id(id)
-            list.insert(idx, iter([item]))
-            list.calibrate_dimensions()        
-           
+            text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
+            undones.append([[text1, id1, idx1, item1, type1, undostack_item1]]) 
+            range1 = len(text1.splitlines())
+            if not type1 == 'delete':
+                target.remove_diff(range1)
+            list1 = self.get_widget_by_id(id1)
+            list1.insert(idx1, iter([item1]))
+            for i in list1.children:
+                i.highlighted = False
+            list1.children[idx1].highlighted = True 
+            list1.scroll_to_widget(list1.children[idx1]) 
+            list1.calibrate_dimensions()        
+          
             eq_rep = re.compile(r'^seq\d_replace\d+$', re.IGNORECASE) 
             comm = re.compile(r'^seq\d_common\d+$', re.IGNORECASE)
             # If diff_lines is still not empty 
-            if len(diff_lines) > 0 and ((not type == 'keep' and eq_rep.match(item.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item.id) and comm.match(diff_lines[-1][3].id))):
-                text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
-                undones[-1].append([text1, id1, idx1, item1, type1, undostack_item1]) 
-                item1.highlighted = False
-                list1 = self.get_widget_by_id(id1)
-                list1.insert(idx1, iter([item1]))
-                list1.calibrate_dimensions()
-            
+            if len(diff_lines) > 0 and ((not type1 == 'keep' and eq_rep.match(item1.id) and eq_rep.match(diff_lines[-1][3].id)) or (comm.match(item1.id) and comm.match(diff_lines[-1][3].id))):
+                text2, id2, idx2, item2, type2, undostack_item2 = diff_lines.pop()
+                # undostack_item2 should be '' 
+                undones[-1].append([text2, id2, idx2, item2, type2, undostack_item1]) 
+                list2 = self.get_widget_by_id(id2)
+                list2.insert(idx2, iter([item2]))
+                for i in list2.children:
+                    i.highlighted = False
+                list2.children[idx2].highlighted = True 
+                list2.scroll_to_widget(list2.children[idx2]) 
+                list2.calibrate_dimensions()
+           
+            target.textarea.move_cursor((target.textarea.document.line_count - 1, 0)) 
+            list1.scroll_item() 
             self.refresh_bindings()
             self.check_empty() 
+        target.calibrate_dimensions()    
     
     def action_redo(self) -> None: 
       
         target = self.get_widget_by_id('mergeview', MergeView)
         # If texteditor portion should redo before the selected parts of text should 
-        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0].text == undones[-1][-1][0]): 
+        # raise SystemExit([target.textarea.history.redo_stack[-1][0], undones[-1][-1][5][0] ]) 
+        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0] == undones[-1][-1][5][0]): 
+            target.textarea.move_cursor(target.textarea.history.redo_stack[-1][-1]._edit_result.end_location)
             target.textarea.redo()
+            target.textarea.scroll_cursor_visible() 
         elif len(undones) > 0:
+           
+            target.textarea.scroll_end(animate=False) 
             
             full_undo = undones.pop()
-           
-            text, id, idx, item, type, undostack_item = full_undo.pop(-1)
+            
+            text1, id1, idx1, item1, type1, undostack_item1 = full_undo.pop(-1)
             if len(full_undo) > 0:
                 text2, id2, idx2, item2, type2, undostack_item2 = full_undo.pop(-1)
-            list = self.get_widget_by_id(id) 
-            list.pop(list.children.index(item)) 
+            
+            if undostack_item2 and isinstance(undostack_item2, list):
+                undostack_item1 = undostack_item2 
+            list1 = self.get_widget_by_id(id1) 
+            list1.pop(list1.children.index(item1)) 
             list2 = self.get_widget_by_id(id2) 
             list2.pop(list2.children.index(item2)) 
             
-            diff_lines.append([text, id, idx, item, type, undostack_item])
+            diff_lines.append([text1, id1, idx1, item1, type1, undostack_item1])
             if text2: 
-                diff_lines.append([text2, id2, idx2, item2, type2, undostack_item2])
+                diff_lines.append([text2, id2, idx2, item2, type2, undostack_item1])
              
             comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
 
-            if not type == 'delete' and ((comm.match(item.id) or type == 'keep' or type == 'replace')):
-                target.add_diff(text) 
+            if not type == 'delete' and ((comm.match(item1.id) or type == 'keep' or type == 'replace')):
+                target.textarea.redo() 
+                # target.add_diff(text) 
 
             self.refresh_bindings()
             self.check_empty() 
+        target.calibrate_dimensions()    
    
     def action_save(self) -> None: 
         
@@ -678,11 +818,11 @@ class MergePy(App):
                 return False
             if action == 'delete' and (not seq or len(list.children) == 0):
                 return False 
-            if action == "undo" and len(diff_lines) == 0 and len(mergeview.textarea.undo_stack) == 0:
+            if action == "undo" and not diff_lines and not mergeview.textarea.history.undo_stack:
                 return False
-            if action == "redo" and len(undones) == 0 and len(mergeview.textarea.redo_stack) == 0:
+            if action == "redo" and not mergeview.textarea.history.redo_stack:
                 return False
-            if action == "save" and len(mergeview.text) == 0:
+            if action == "save" and len(mergeview.textarea.text) == 0:
                 return False
         except:
             pass
