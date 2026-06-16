@@ -386,17 +386,15 @@ class MergeView(TextArea):
             self.insert('\n', (self.document.line_count - 1, len(self.text.splitlines()[0])), maintain_selection_offset=False) 
         self.insert(text, (self.document.line_count - 1, 0), maintain_selection_offset=False) 
         # Otherwise gives error 
-        self.move_cursor((0, 0))
         diff_lines[-1][-1] = self.history.undo_stack[-1] 
         self.calibrate_dimensions()
         self.scroll_end(animate=False) 
-        #self.scroll_end()
 
-    def remove_diff(self, range) -> None:
-        self.move_cursor((0, 0)) 
-        self.undo() 
+    def remove_diff(self) -> None:
+        self.move_cursor(self.history.undo_stack[-1][0].from_location) 
+        self.undo()
         self.calibrate_dimensions() 
-        self.scroll_end()
+        self.scroll_end(animate=False)
 
 class MergePy(App):
     
@@ -648,9 +646,8 @@ class MergePy(App):
             
             text1, id1, idx1, item1, type1, undostack_item1 = diff_lines.pop()
             undones.append([[text1, id1, idx1, item1, type1, undostack_item1]]) 
-            range1 = len(text1.splitlines())
             if not type1 == 'delete':
-                target.remove_diff(range1)
+                target.remove_diff()
             list1 = self.get_widget_by_id(id1)
             list1.insert(idx1, iter([item1]))
             for i in list1.children:
