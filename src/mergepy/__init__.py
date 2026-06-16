@@ -120,7 +120,6 @@ class DiffSlice(Slice):
 
 # Textarea Overrides
 
-class TextArea(TextArea):
     #BINDINGS = [
     #    # Cursor movement
     #    Binding("up", "cursor_up", "Cursor up", show=False),
@@ -229,11 +228,7 @@ class TextArea(TextArea):
     | ctrl+c                 | Copy selection to clipboard.                 |
     | ctrl+v                 | Paste from clipboard.                        |
     """ 
-    def action_undo(self) -> None:
-        self.parent.parent.parent.parent.action_undo()
     
-    def action_redo(self) -> None:
-        self.parent.parent.parent.parent.action_redo()
 
 
 class CommonSlice(Slice):
@@ -250,6 +245,8 @@ class CommonSlice(Slice):
         return syntax
 
 class SideView(ListView):
+
+     
 
     def get_index(self) -> None:
         for i in self.children:
@@ -295,7 +292,7 @@ class SideView(ListView):
         elif event.key == 'ctrl+right': 
             seq1.highlighted_child.highlighted = False 
             seq2.highlighted_child.highlighted = False 
-            self.parent.parent.parent.get_widget_by_id('mergeview').textarea.focus()
+            self.parent.parent.parent.parent.textarea.focus()
         elif event.key == 'shift+up':
             self.parent.scroll_up()
         elif event.key == 'shift+down':
@@ -342,9 +339,7 @@ class SideView(ListView):
 
 
 
-class MergeView(ScrollableContainer):   
-
-    text = reactive('')
+class MergeView(TextArea):   
 
     def calibrate_dimensions(self) -> None:
         self.height = self.text.count("\n") + 2 if not self.text == '' else 0
@@ -352,18 +347,15 @@ class MergeView(ScrollableContainer):
         self.width = max(len(line) for line in self.text.splitlines()) if self.text else 0
         self.styles.width = self.width
         self.styles.min_width = 100
-        self.textarea._rewrap_and_refresh_virtual_size()  
+        self._rewrap_and_refresh_virtual_size()  
         self.virtual_size = Size(self.width, self.height)
 
-    def __init__(self, text, lang, theme, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.id = 'mergeview'
-        self.text = text # if not text == '' else '\n' 
-        self.lang = lang
-        self.theme = theme
-        self.textarea = TextArea.code_editor(text=self.text, language="bash") 
-        self.calibrate_dimensions()
+    def action_undo(self) -> None:
+        self.parent.parent.action_undo()
     
+    def action_redo(self) -> None:
+        self.parent.parent.action_redo() 
+
     def on_key(self, event: events.Key) -> None:
         if event.key == 'ctrl+left' or event.key == 'ctrl+right':
             seq1 = self.parent.parent.get_widget_by_id('seq1') 
@@ -375,56 +367,37 @@ class MergeView(ScrollableContainer):
                 seq2.focus()
                 seq2.highlighted_child.highlighted = True
         elif event.key == 'up' or event.key == 'down':
-            self.textarea.scroll_cursor_visible()
+            self.scroll_cursor_visible()
         elif event.key == 'alt+up':
-            self.parent.scroll_up()
+            self.scroll_up()
         elif event.key == 'alt+down':
-            self.parent.scroll_down() 
+            self.scroll_down() 
         elif event.key == 'pagedown':
-            self.parent.scroll_page_down()
+            self.scroll_page_down()
         elif event.key == 'pageup':
-            self.parent.scroll_page_up()
+            self.scroll_page_up()
         elif event.key == 'alt+left':
-            self.parent.scroll_page_left()
+            self.scroll_page_left()
         elif event.key == 'alt+right':
-            self.parent.scroll_page_right()
-        # elif event.key == 'm':
-        #     raise SystemExit(self.textarea.text.splitlines())
-        #    self.parent.parent.action_undo() 
+            self.scroll_page_right()
 
     def add_diff(self, text) -> None:
-        if len(self.textarea.text) > 0 and not self.textarea.text[-1] == '\n': 
-            self.textarea.insert('\n', (self.textarea.document.line_count - 1, len(self.textarea.text.splitlines()[0])), maintain_selection_offset=False) 
-        self.textarea.insert(text, (self.textarea.document.line_count - 1, 0), maintain_selection_offset=False) 
+        if len(self.text) > 0 and not self.text[-1] == '\n': 
+            self.insert('\n', (self.document.line_count - 1, len(self.text.splitlines()[0])), maintain_selection_offset=False) 
+        self.insert(text, (self.document.line_count - 1, 0), maintain_selection_offset=False) 
         # Otherwise gives error 
-        self.textarea.move_cursor((0, 0))
-        diff_lines[-1][-1] = self.textarea.history.undo_stack[-1] 
-        self.text += text
+        self.move_cursor((0, 0))
+        diff_lines[-1][-1] = self.history.undo_stack[-1] 
         self.calibrate_dimensions()
-        self.parent.scroll_end()
+        self.scroll_end(animate=False) 
+        #self.scroll_end()
 
     def remove_diff(self, range) -> None:
-        #self.textarea.history 
-        self.textarea.move_cursor((0, 0)) 
-        self.textarea.undo() 
-        self.text = "\n".join(self.text.splitlines()[:-range]) + '\n'
+        self.move_cursor((0, 0)) 
+        self.undo() 
         self.calibrate_dimensions() 
-        self.parent.scroll_end()
+        self.scroll_end()
 
-    #def compose(self) -> ComposeResult:
-    #    yield TextArea.code_editor(self.text, language="python")
-
-    def render(self) -> RenderResult:
-        # Syntax is a Rich renderable that displays syntax highlighted code
-        # syntax = Syntax.from_path(self.filepath, line_numbers=True, indent_guides=True, word_wrap=True, highlight_lines=[7,8])
-        #syntax = Syntax(self.text, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
-         
-        syntax = Syntax(self.text, self.lang, theme=self.theme, line_numbers=True, indent_guides=True, word_wrap=True)
-        return syntax         
-
-    def compose(self) -> ComposeResult:
-        yield self.textarea 
-       
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
@@ -432,8 +405,10 @@ class MergePy(App):
     # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
         ("Ctrl-↑/↓/←/→", "   ", "Next window"),
-        ("Shift-↑/↓/←/→", "    ", "Scroll"),
+        ("Shift-↑/↓/←/→", "scroll1", "Scroll"),
+        ("Shift-↑/↓/←/→", "select", "Select"),
         ("Alt-↑/↓", "next_conflict", "Next Conflict"),
+        ("Alt-↑/↓/←/→", "scroll2", "Scroll"),
         ("Spacebar", "sync", "Sync"),
         ("Enter", "replace_keep", "Replace/Keep"),
         ("r", "replace", "Replace Block"),
@@ -456,6 +431,7 @@ class MergePy(App):
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = None 
+        self.textarea = MergeView.code_editor(id='mergeview', text="", language="bash") 
         if output:
             self.output = output
         
@@ -512,7 +488,7 @@ class MergePy(App):
     def on_key(self, event: events.Key) -> None:
         # Try and except otherwise command palette freaks out 
         try: 
-            if not self.get_widget_by_id('mergeview').has_focus_within: 
+            if not self.textarea.has_focus_within: 
                  
                 if not (event.key == 'shift+up' or event.key == 'shift+down' or event.key == 'shift+left' or event.key == 'shift+right'): 
                     self.refresh_bindings()
@@ -521,26 +497,17 @@ class MergePy(App):
         except:
             pass
 
-    def on_click(self) -> None:
-        try: 
-            if self.get_widget_by_id('scrollviewmerge').has_focus:
-                self.get_widget_by_id('mergeview').focus()
-            self.refresh_bindings()
-        except:
-            # Command palette open 
-            pass
 
     def check_empty(self) -> None:
         seq1 = self.get_widget_by_id('seq1') 
         seq2 = self.get_widget_by_id('seq2') 
-        mergeview = self.get_widget_by_id('mergeview') 
    
         if len(seq1.children) < 2 and len(seq2.children) > 2:
             seq2.focus() 
         elif len(seq1.children) > 2 and len(seq2.children) < 2:
             seq1.focus() 
-        elif len(seq1.children) < 2 and len(seq2.children) < 2 and not mergeview.text == '':
-            mergeview.focus()
+        elif len(seq1.children) < 2 and len(seq2.children) < 2 and not self.textarea.text == '':
+            self.textarea.focus()
 
     def action_next_conflict(self) -> None: 
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
@@ -556,7 +523,7 @@ class MergePy(App):
         list.scroll_item()
 
     def action_replace(self) -> None:
-        target = self.get_widget_by_id('mergeview', MergeView)
+        target = self.textarea 
         list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
         list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
@@ -588,7 +555,7 @@ class MergePy(App):
         undones.clear() 
 
     def action_keep(self) -> None:
-        target = self.get_widget_by_id('mergeview', MergeView)
+        target = self.textarea
         seq = ''
         id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
         list = self.get_widget_by_id('seq1') if id == 'seq1' else self.get_widget_by_id('seq2')
@@ -662,15 +629,15 @@ class MergePy(App):
                 self.action_keep() 
 
     def action_undo(self) -> None:
-        target = self.get_widget_by_id('mergeview', MergeView)
+        target = self.textarea
         # If texteditor portion should undo before the selected parts of text should 
-        if len(target.textarea.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.textarea.history.undo_stack[-1] == diff_lines[-1][-1]):
-            target.textarea.move_cursor(target.textarea.history.undo_stack[-1][-1]._edit_result.end_location)
-            target.textarea.undo()
-            target.textarea.scroll_cursor_visible()
+        if len(target.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.history.undo_stack[-1] == diff_lines[-1][-1]):
+            target.move_cursor(target.history.undo_stack[-1][-1]._edit_result.end_location)
+            target.undo()
+            target.scroll_cursor_visible()
         elif len(diff_lines) > 0: 
             
-            target.textarea.scroll_end(animate=False) 
+            target.scroll_end(animate=False) 
             
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:
@@ -707,7 +674,7 @@ class MergePy(App):
                 list2.scroll_to_widget(list2.children[idx2]) 
                 list2.calibrate_dimensions()
            
-            target.textarea.move_cursor((target.textarea.document.line_count - 1, 0)) 
+            target.move_cursor((target.document.line_count - 1, 0)) 
             list1.scroll_item() 
             self.refresh_bindings()
             self.check_empty() 
@@ -715,16 +682,15 @@ class MergePy(App):
     
     def action_redo(self) -> None: 
       
-        target = self.get_widget_by_id('mergeview', MergeView)
+        target = self.textarea
         # If texteditor portion should redo before the selected parts of text should 
-        # raise SystemExit([target.textarea.history.redo_stack[-1][0], undones[-1][-1][5][0] ]) 
-        if len(target.textarea.history.redo_stack) > 0 and (len(undones) == 0 or not target.textarea.history.redo_stack[-1][0] == undones[-1][-1][5][0]): 
-            target.textarea.move_cursor(target.textarea.history.redo_stack[-1][-1]._edit_result.end_location)
-            target.textarea.redo()
-            target.textarea.scroll_cursor_visible() 
+        if len(target.history.redo_stack) > 0 and (len(undones) == 0 or not target.history.redo_stack[-1][0] == undones[-1][-1][5][0]): 
+            target.move_cursor(target.history.redo_stack[-1][-1]._edit_result.end_location)
+            target.redo()
+            target.scroll_cursor_visible() 
         elif len(undones) > 0:
-           
-            target.textarea.scroll_end(animate=False) 
+            
+            target.scroll_end(animate=False) 
             
             full_undo = undones.pop()
             
@@ -745,9 +711,8 @@ class MergePy(App):
              
             comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
 
-            if not type == 'delete' and ((comm.match(item1.id) or type == 'keep' or type == 'replace')):
-                target.textarea.redo() 
-                # target.add_diff(text) 
+            if not type1 == 'delete' and ((comm.match(item1.id) or type1 == 'keep' or type1 == 'replace')):
+                target.redo()
 
             self.refresh_bindings()
             self.check_empty() 
@@ -755,8 +720,8 @@ class MergePy(App):
    
     def action_save(self) -> None: 
         
-        target = self.get_widget_by_id('mergeview', MergeView) 
-        
+        target = self.textarea
+
         # If we're on linux, use zenity
         if self.output: 
             with open(self.output, 'w') as f:
@@ -798,31 +763,32 @@ class MergePy(App):
         # Same with using queries. 
         # Afaik there doesn't seem to be a way to just 'check' whether self has a widget with a certain id without raising an exception if not found  
         try:
-            scrollviewmerge = self.get_widget_by_id('scrollviewmerge')
             mergeview = self.get_widget_by_id('mergeview')
     
             if self.get_widget_by_id('scrollview1').has_focus_within:
-                list = self.get_widget_by_id('seq1') 
-                h = list.highlighted_child
+                list1 = self.get_widget_by_id('seq1') 
+                h = list1.highlighted_child
                 seq = True 
             elif self.get_widget_by_id('scrollview2').has_focus_within:
-                list = self.get_widget_by_id('seq2')
-                h = list.highlighted_child
+                list1 = self.get_widget_by_id('seq2')
+                h = list1.highlighted_child
                 seq = True
             
-            if (action == "next_conflict" or action == 'sync' or action == 'replace_keep') and scrollviewmerge.has_focus_within:
+            if (action == "next_conflict" or action == 'scroll1' or action == 'sync' or action == 'replace_keep') and mergeview.has_focus_within:
+                return False
+            elif (action == 'scroll2' or action == 'select') and not mergeview.has_focus_within:
                 return False
             if action == 'replace' and (not seq or h == None or not x.match(h.id)):
                 return False
-            if action == 'keep' and (not seq or len(list.children) == 0):
+            if action == 'keep' and (not seq or len(list1.children) == 0):
                 return False
-            if action == 'delete' and (not seq or len(list.children) == 0):
+            if action == 'delete' and (not seq or len(list1.children) == 0):
                 return False 
-            if action == "undo" and not diff_lines and not mergeview.textarea.history.undo_stack:
+            if action == "undo" and not diff_lines and not self.textarea.history.undo_stack:
                 return False
-            if action == "redo" and not mergeview.textarea.history.redo_stack:
+            if action == "redo" and not self.textarea.history.redo_stack:
                 return False
-            if action == "save" and len(mergeview.textarea.text) == 0:
+            if action == "save" and len(self.textarea.text) == 0:
                 return False
         except:
             pass
@@ -924,8 +890,7 @@ class MergePy(App):
             yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
                 yield SideView(self.text2, 'seq2', self.slices2, self.lang, 'ansi_dark')
-        with ScrollableContainer(id='scrollviewmerge'):
-            yield MergeView(self.merge, self.lang, 'ansi_dark')
+        yield self.textarea
        
         yield Footer()
 
