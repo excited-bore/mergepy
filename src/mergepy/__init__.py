@@ -372,9 +372,9 @@ class MergeView(TextArea):
             self.scroll_up()
         elif event.key == 'alt+down':
             self.scroll_down() 
-        elif event.key == 'pagedown':
+        elif event.key == 'pagedown' or event.key == 'alt+pagedown':
             self.scroll_page_down()
-        elif event.key == 'pageup':
+        elif event.key == 'pageup' or event.key == 'alt+pageup':
             self.scroll_page_up()
         elif event.key == 'alt+left':
             self.scroll_page_left()
@@ -385,40 +385,38 @@ class MergeView(TextArea):
         if len(self.text) > 0 and not self.text[-1] == '\n': 
             self.insert('\n', (self.document.line_count - 1, len(self.text.splitlines()[0])), maintain_selection_offset=False) 
         self.insert(text, (self.document.line_count - 1, 0), maintain_selection_offset=False) 
-        # Otherwise gives error 
         diff_lines[-1][-1] = self.history.undo_stack[-1] 
         self.calibrate_dimensions()
-        self.scroll_end(animate=False) 
 
     def remove_diff(self) -> None:
-        self.move_cursor(self.history.undo_stack[-1][0].from_location) 
+        # Otherwise gives error 
+        self.move_cursor(self.history.undo_stack[-1][0].from_location, select=False, center=False, record_width=False) 
         self.undo()
         self.calibrate_dimensions() 
-        self.scroll_end(animate=False)
+        #self.scroll_end(animate=False)
 
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
 
-    # ("space", "nothing('2')", "Select Conflict")
     BINDINGS = [
-        ("Ctrl-↑/↓/←/→", "   ", "Next window"),
-        ("Shift-↑/↓/←/→", "scroll1", "Scroll"),
-        ("Shift-↑/↓/←/→", "select", "Select"),
-        ("Alt-↑/↓", "next_conflict", "Next Conflict"),
-        ("Alt-↑/↓/←/→", "scroll2", "Scroll"),
-        ("Spacebar", "sync", "Sync"),
-        ("Enter", "replace_keep", "Replace/Keep"),
+        ("ctrl-↑/↓/←/→", "   ", "Next window"),
+        ("shift-↑/↓/←/→", "scroll1", "Scroll"),
+        ("shift-↑/↓/←/→", "select", "Select"),
+        ("alt-↑/↓", "next_conflict", "Next Conflict"),
+        ("alt-↑/↓/←/→", "scroll2", "Scroll"),
+        ("space", "sync", "Sync"),
+        ("enter", "replace_keep", "Replace/Keep"),
         ("r", "replace", "Replace Block"),
         ("k", "keep", "Keep Block"),
         ("d", "delete", "Delete Block"),
         ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
+        ("ctrl+s", "save", "Save"),
         # I put these here sinds textual's textarea uses ctrl+z and ctrl+y internally with show=False 
         ("^z", "undo", "Undo"),
         ("^y", "redo", "Redo"),
-        ("ctrl+s", "save", "Save"),
      ]
 
     merge = reactive('') 
@@ -634,8 +632,6 @@ class MergePy(App):
             target.undo()
             target.scroll_cursor_visible()
         elif len(diff_lines) > 0: 
-            
-            target.scroll_end(animate=False) 
             
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:

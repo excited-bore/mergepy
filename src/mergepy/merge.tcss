@@ -54,6 +54,7 @@ MergeView {
     max_width: 100%; 
     text-align: left;
     overflow: auto;
+    scrollbar-visibility: visible;
 }
 
 VerticalGroup{
