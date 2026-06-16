@@ -31,7 +31,36 @@ from PySide6.QtWidgets import QApplication, QFileDialog
 from dataclasses import dataclass, field
 
 
-def syntax_language(file_path: str) -> str:
+def editor_language(file_path: str) -> str:
+    ext = Path(file_path).suffix.lower()
+    return {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".json": "json",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".c": "c",
+        ".h": "c",
+        ".html": "html",
+        ".css": "css",
+        ".rb": "ruby",
+        ".php": "php",
+        ".rs": "rust",
+        ".go": "go",
+        ".swift": "swift",
+        ".yml": "yaml",
+        ".yaml": "yaml",
+        ".sh": "bash",
+        ".env": "bash",
+        ".bash": "bash",
+        ".zsh": "zsh",
+        ".csh": "bash",
+        ".fish": "bash",
+    }.get(ext, "")
+
+
+def rich_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
     return {
         ".py": "python",
@@ -390,10 +419,9 @@ class MergeView(TextArea):
 
     def remove_diff(self) -> None:
         # Otherwise gives error 
-        self.move_cursor(self.history.undo_stack[-1][0].from_location, select=False, center=False, record_width=False) 
+        self.move_cursor(self.history.undo_stack[-1][0].from_location) 
         self.undo()
         self.calibrate_dimensions() 
-        #self.scroll_end(animate=False)
 
 class MergePy(App):
     
@@ -427,7 +455,6 @@ class MergePy(App):
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = None 
-        self.textarea = MergeView.code_editor(id='mergeview', text="", language="bash") 
         if output:
             self.output = output
         
@@ -440,13 +467,14 @@ class MergePy(App):
         self.seq=self.show_diff(text1, text2)
         
         if Path(self.file_path1).suffix:
-            self.lang = syntax_language(self.file_path1)
+            self.richlang = rich_language(self.file_path1)
+            self.editlang = editor_language(self.file_path1)
         elif Path(self.file_path2).suffix:
-            self.lang = syntax_language(self.file_path2)
-        # Else we just pretend its a shell language
-        else:
-            self.lang = 'shell'
-
+            self.richlang = rich_language(self.file_path2)
+            self.editlang = editor_language(self.file_path2)
+        
+        self.textarea = MergeView.code_editor(id='mergeview', text="", language=self.editlang) 
+        
         self.slices1, self.slices2 = [], []
         for i in self.seq:
             if i[0] == 'seq1':
@@ -879,10 +907,10 @@ class MergePy(App):
         with VerticalGroup():
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.text1, 'seq1', self.slices1, self.lang, 'ansi_dark')
+                yield SideView(self.text1, 'seq1', self.slices1, self.richlang, 'ansi_dark')
             yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.text2, 'seq2', self.slices2, self.lang, 'ansi_dark')
+                yield SideView(self.text2, 'seq2', self.slices2, self.richlang, 'ansi_dark')
         yield self.textarea
        
         yield Footer()
