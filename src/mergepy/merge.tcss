@@ -12,7 +12,6 @@ Label{
 }
 
 DiffSlice{
-    # display: none;
     # layer: above;
     # overflow: auto;
     # height: auto;
@@ -22,7 +21,6 @@ DiffSlice{
 }
 
 CommonSlice{
-    # display: none;
     # layer: below;
     # overflow: scroll;
     # height: auto;
