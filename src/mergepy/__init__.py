@@ -55,8 +55,8 @@ def editor_language(file_path: str) -> str:
         ".env": "bash",
         ".bash": "bash",
         ".zsh": "zsh",
-        ".csh": "bash",
-        ".fish": "bash",
+        ".csh": "",
+        ".fish": "",
     }.get(ext, "")
 
 
@@ -274,9 +274,7 @@ class CommonSlice(Slice):
         return syntax
 
 class SideView(ListView):
-
      
-
     def get_index(self) -> None:
         for i in self.children:
             if i.id:
@@ -449,15 +447,14 @@ class MergePy(App):
 
     merge = reactive('') 
 
-    def __init__(self, file_path1: Path, file_path2: Path, output=None, **kwargs):
+    def __init__(self, file_path1: Path, file_path2: Path, output=None, richtheme='ansi_dark', mergetheme='css', **kwargs):
         super().__init__(**kwargs)
         self.id = 'app' 
         self.file_path1 = file_path1
         self.file_path2 = file_path2
-        self.output = None 
-        if output:
-            self.output = output
-        
+        self.output = output
+        self.richtheme = richtheme 
+        self.mergetheme = mergetheme 
         with open(self.file_path1) as self_file:
             text1 = self_file.read()
         
@@ -473,7 +470,7 @@ class MergePy(App):
             self.richlang = rich_language(self.file_path2)
             self.editlang = editor_language(self.file_path2)
         
-        self.textarea = MergeView.code_editor(id='mergeview', text="", language=self.editlang) 
+        self.textarea = MergeView.code_editor(id='mergeview', text="", language=self.editlang, theme=self.mergetheme) 
         
         self.slices1, self.slices2 = [], []
         for i in self.seq:
@@ -907,10 +904,10 @@ class MergePy(App):
         with VerticalGroup():
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.text1, 'seq1', self.slices1, self.richlang, 'ansi_dark')
+                yield SideView(self.text1, 'seq1', self.slices1, self.richlang, self.richtheme)
             yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.text2, 'seq2', self.slices2, self.richlang, 'ansi_dark')
+                yield SideView(self.text2, 'seq2', self.slices2, self.richlang, self.richtheme)
         yield self.textarea
        
         yield Footer()
@@ -918,10 +915,14 @@ class MergePy(App):
 def main():
     choices = argcomplete.completers.ChoicesCompleter
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--version', action='version', version='Mergepy: {version}'.format(version=__version__))
+    parser.add_argument('-v','--version', action='version', version='Mergepy: {version}'.format(version=__version__))
     parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="output file")
-    parser.add_argument("file1", type=Path, help="First file to be merged", metavar="first file")
-    parser.add_argument("file2", type=Path, help="Second file to be merged", metavar="second file")
+    parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'sata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
+    Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
+    Refer to: https://pygments.org/styles/ for reference.""", metavar="File theme")
+    parser.add_argument("-e","--editor-theme", required=False, choices=TextArea().available_themes, default='css', help="""Syntax theme of the editor portion (merge). Available options are: 'css', 'dracula', 'vscode_dark', 'github_light', 'monokai'""", metavar="Merge theme") 
+    parser.add_argument("file1", type=Path, help="First file to be merged", metavar="file1")
+    parser.add_argument("file2", type=Path, help="Second file to be merged", metavar="file2")
     output_stream = None
     if "_ARGCOMPLETE_POWERSHELL" in os.environ:
         output_stream = codecs.getwriter("utf-8")(sys.stdout.buffer)
@@ -942,11 +943,14 @@ def main():
     else:
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
-        if args.output:
-            output = os.path.abspath(args.output) 
-            MergePy(file1, file2, output).run()
-        else:
-            MergePy(file1, file2).run()
+        argumnts = [file1, file2] 
+        output = os.path.abspath(args.output) if args.output else None 
+        argumnts.append(output)
+        if args.file_theme:
+            argumnts.append(args.file_theme)
+        if args.editor_theme:
+            argumnts.append(args.editor_theme)
+        MergePy(*argumnts).run()
 
 if __name__ == "__main__":
     main()
