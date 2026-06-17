@@ -447,7 +447,7 @@ class MergePy(App):
 
     merge = reactive('') 
 
-    def __init__(self, file_path1: Path, file_path2: Path, output=None, richtheme='ansi_dark', mergetheme='css', **kwargs):
+    def __init__(self, file_path1: Path, file_path2: Path, output=None, richtheme='ansi_dark',language='', mergetheme='css', **kwargs):
         super().__init__(**kwargs)
         self.id = 'app' 
         self.file_path1 = file_path1
@@ -463,7 +463,10 @@ class MergePy(App):
         
         self.seq=self.show_diff(text1, text2)
         
-        if Path(self.file_path1).suffix:
+        if language: 
+            self.richlang = language 
+            self.editlang = language 
+        elif Path(self.file_path1).suffix:
             self.richlang = rich_language(self.file_path1)
             self.editlang = editor_language(self.file_path1)
         elif Path(self.file_path2).suffix:
@@ -919,8 +922,9 @@ def main():
     parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="output file")
     parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'sata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
     Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
-    Refer to: https://pygments.org/styles/ for reference.""", metavar="File theme")
-    parser.add_argument("-e","--editor-theme", required=False, choices=TextArea().available_themes, default='css', help="""Syntax theme of the editor portion (merge). Available options are: 'css', 'dracula', 'vscode_dark', 'github_light', 'monokai'""", metavar="Merge theme") 
+    Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
+    parser.add_argument("-l","--language", required=False, choices=["python","javascript","typescript","json","java","cpp","c","html","css","ruby","php","rust","go","swift","yaml","bash","zsh"], help="""Language to parse for the editor portion (merge).""", metavar="mergelanguage") 
+    parser.add_argument("-e","--editor-theme", required=False, choices=TextArea().available_themes, default='css', help="""Syntax theme of the editor portion (merge). Available options are: 'css', 'dracula', 'vscode_dark', 'github_light', 'monokai'""", metavar="mergetheme") 
     parser.add_argument("file1", type=Path, help="First file to be merged", metavar="file1")
     parser.add_argument("file2", type=Path, help="Second file to be merged", metavar="file2")
     output_stream = None
@@ -943,14 +947,16 @@ def main():
     else:
         file1=os.path.abspath(args.file1)
         file2=os.path.abspath(args.file2)
-        argumnts = [file1, file2] 
+        argumnts = {"file_path1" : file1, "file_path2" : file2} 
         output = os.path.abspath(args.output) if args.output else None 
-        argumnts.append(output)
+        argumnts["output"] = output
         if args.file_theme:
-            argumnts.append(args.file_theme)
+            argumnts["richtheme"] = args.file_theme
+        if args.language:
+            argumnts["language"] = args.language
         if args.editor_theme:
-            argumnts.append(args.editor_theme)
-        MergePy(*argumnts).run()
+            argumnts["mergetheme"] = args.editor_theme
+        MergePy(**argumnts).run()
 
 if __name__ == "__main__":
     main()
