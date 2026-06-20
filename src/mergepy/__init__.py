@@ -121,11 +121,11 @@ class Slice(ListItem):
 
         try:
             target = self.parent.parent.parent.parent.get_widget_by_id(result, Slice)
-            target1 = self.parent.parent.parent.parent.get_widget_by_id(type2)
-            listView = self.parent.parent.parent.parent.get_widget_by_id(type1, SideView)
-            target1.scroll_to_widget(target, center=True, force=True)
-            index = listView.children.index(target)
-            listView.index = index
+            scrollview = self.parent.parent.parent.parent.get_widget_by_id(type2)
+            sideview = self.parent.parent.parent.parent.get_widget_by_id(type1, SideView)
+            scrollview.scroll_to_widget(target, center=True)
+            index = sideview.children.index(target)
+            sideview.index = index
         except:
             pass
 
@@ -164,7 +164,11 @@ class CommonSlice(Slice):
 
 
 class SideView(ListView):
-     
+    
+    BINDINGS = [
+        Binding("space", "sync", "Sync", show=False),
+    ] 
+
     def get_index(self) -> None:
         for i in self.children:
             if i.id:
@@ -184,16 +188,26 @@ class SideView(ListView):
         self.virtual_size = Size(self.width, self.height)
         self.get_index()
 
-    def __init__(self, text, id1, slices, lang, theme, **kwargs) -> None:
+    def __init__(self, text, id1, slices, lang, theme, autosync, **kwargs) -> None:
         super().__init__(**kwargs)
+        # ListView at default has bound enter to select a listitem
+        # We can rebind this like nothing ever happened but since ListView is a child of MergePy,
+        # (the class where we rebind enter), the footer will show the enter bind as the first option
+        # , which is not what we want. And since there is no proper 'unbind', we do this
+        self._bindings.key_to_bindings.pop('enter') 
+        self.refresh_bindings() 
         self.text = text
         self.id = id1
         self.index = 0
         self.slices = slices
         self.lang = lang
         self.theme = theme
+        self.autosync = autosync 
         self.calibrate_dimensions()
-    
+   
+    def action_sync(self) -> None: 
+        self.scroll_item()
+
     def scroll_item(self) -> None:
         self.children[self.index].action_focus_item()
     
@@ -203,9 +217,23 @@ class SideView(ListView):
         if event.key == 'space': 
             self.scroll_item()
         elif event.key == 'up' and self.index-1 >= 0:
-            self.parent.scroll_to_widget(self.children[self.index-1], center=True)
+            # There's probably a better way to do this, but I can't seem to get scroll_item to behave properly otherwise after scrollint to the selected listitem
+            # So we do this chicanery, it seems to work
+            if self.autosync: 
+                self.index = self.index - 1 
+                self.parent.scroll_to_widget(self.children[self.index], center=True)
+                self.scroll_item()
+                self.index = self.index + 1
+            else:
+                self.parent.scroll_to_widget(self.children[self.index-1], center=True)
         elif event.key == 'down' and self.index+1 <= len(self.children) - 1:
-            self.parent.scroll_to_widget(self.children[self.index+1], center=True)
+            if self.autosync: 
+                self.index = self.index + 1 
+                self.parent.scroll_to_widget(self.children[self.index], center=True)
+                self.scroll_item()
+                self.index = self.index - 1 
+            else:
+                self.parent.scroll_to_widget(self.children[self.index+1], center=True)
         elif event.key == 'ctrl+right': 
             seq1.highlighted_child.highlighted = False 
             seq2.highlighted_child.highlighted = False 
@@ -305,6 +333,12 @@ class MergeView(TextArea):
         self._rewrap_and_refresh_virtual_size()  
         self.virtual_size = Size(self.width, self.height)
 
+    def on_mount(self) -> None:
+        self._bindings.key_to_bindings.pop('ctrl+left')
+        self._bindings.key_to_bindings.pop('ctrl+right')
+        self._bindings.key_to_bindings.pop('ctrl+z')
+        self._bindings.key_to_bindings.pop('ctrl+y')
+
     def action_undo(self) -> None:
         self.parent.parent.action_undo()
     
@@ -359,29 +393,27 @@ class MergePy(App):
         ("shift-↑/↓/←/→", "select", "Select"),
         ("alt-↑/↓", "next_conflict", "Next Conflict"),
         ("alt-↑/↓/←/→", "scroll2", "Scroll"),
-        ("space", "sync", "Sync"),
-        ("enter", "replace_keep", "Replace/Keep"),
+        ("enter", "replace_keep", "Replace diff/Keep common"),
         ("r", "replace", "Replace Block"),
         ("k", "keep", "Keep Block"),
         ("d", "delete", "Delete Block"),
-        ("q", "quit", "Quit"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
         ("ctrl+s", "save", "Save"),
-        # I put these here sinds textual's textarea uses ctrl+z and ctrl+y internally with show=False 
-        ("^z", "undo", "Undo"),
-        ("^y", "redo", "Redo"),
+        ("ctrl+q", "quit", "Quit"),
      ]
+     
 
     merge = reactive('') 
 
-    def __init__(self, file_path1: Path, file_path2: Path, output=None, automerge=True, richtheme='ansi_dark',language='', mergetheme='css', **kwargs):
+    def __init__(self, file_path1: Path, file_path2: Path, output=None, automerge=True, autosync=True,richtheme='ansi_dark',language='', mergetheme='css', **kwargs):
         super().__init__(**kwargs)
         self.id = 'app' 
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = output
         self.automerge = automerge
+        self.autosync = autosync
         self.richtheme = richtheme 
         self.mergetheme = mergetheme 
         with open(self.file_path1) as self_file:
@@ -403,6 +435,13 @@ class MergePy(App):
             self.editlang = editor_language(self.file_path2)
         
         self.textarea = MergeView.code_editor(id='mergeview', text="", language=self.editlang, theme=self.mergetheme) 
+        
+        # Reorder ctrl+q in footer 
+        keys = list(self._bindings.key_to_bindings) 
+        idx = keys.index('ctrl+q') 
+        keys.pop(idx) 
+        keys.insert(-1, 'ctrl+q') 
+        self._bindings.key_to_bindings = {key: self._bindings.key_to_bindings[key] for key in keys} 
         
         self.slices1, self.slices2 = [], []
         for i in self.seq:
@@ -446,8 +485,8 @@ class MergePy(App):
                  
                 if not (event.key == 'shift+up' or event.key == 'shift+down' or event.key == 'shift+left' or event.key == 'shift+right'): 
                     self.refresh_bindings()
-                if event.key == 'enter':
-                    self.action_replace_keep()
+                #if event.key == 'enter':
+                #    self.action_replace_keep()
         except:
             pass
 
@@ -479,13 +518,6 @@ class MergePy(App):
     
     def action_next_conflict(self) -> None: 
         self.next_conflict() 
-
-    def sync(self):
-        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        list1.scroll_item()
-
-    def action_sync(self) -> None:
-        self.sync()
 
     def replace(self):
         target = self.textarea 
@@ -524,7 +556,7 @@ class MergePy(App):
         return [complete1, complete2]
 
     async def action_replace(self) -> None:
-        completes = self.keep()
+        completes = self.replace()
         if self.automerge: 
             await completes[0]
             await completes[1]
@@ -631,12 +663,19 @@ class MergePy(App):
         if type(list1.index) == int and len(list1.children) >= list1.index:
             repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
             if repl.match(list1.children[list1.index].id):
-                self.replace()
+                completes = self.replace()
             else:
-                self.keep() 
+                completes = self.keep() 
+            return completes 
 
-    def action_replace_keep(self) -> None:
-        self.replace_keep()
+    async def action_replace_keep(self) -> None:
+        completes = self.replace_keep()
+        if self.automerge: 
+            await completes[0]
+            if len(completes) == 2:
+                await completes[1]
+            self.check_automerge() 
+
 
     def undo(self):
         target = self.textarea
@@ -901,10 +940,10 @@ class MergePy(App):
         with VerticalGroup():
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
-                yield SideView(self.text1, 'seq1', self.slices1, self.richlang, self.richtheme)
+                yield SideView(self.text1, 'seq1', self.slices1, self.richlang, self.richtheme, self.autosync)
             yield Label(str(self.file_path2))
             with HorizontalScroll(id='scrollview2'):
-                yield SideView(self.text2, 'seq2', self.slices2, self.richlang, self.richtheme)
+                yield SideView(self.text2, 'seq2', self.slices2, self.richlang, self.richtheme, self.autosync)
         yield self.textarea
        
         yield Footer()
@@ -913,8 +952,9 @@ def main():
     choices = argcomplete.completers.ChoicesCompleter
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='Mergepy: {version}'.format(version=__version__))
-    parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="output file")
-    parser.add_argument("-a","--automerge-common", type=bool, default=True, required=False, help="Automatically merge common blocks", metavar="automerge")
+    parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="outputfile")
+    parser.add_argument("-m","--automerge-common", type=bool, default=True, required=False, help="Automatically merge common blocks", metavar="automerge")
+    parser.add_argument("-s","--autosync", type=bool, default=True, required=False, help="Automatically sync parallel blocks when moving up or down. If false, use spacebar to sync", metavar="autosync")
     parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'sata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
     Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
     Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
@@ -947,6 +987,8 @@ def main():
         argumnts["output"] = output
         if args.automerge_common:
             argumnts["automerge"] = args.automerge_common
+        if args.autosync:
+            argumnts["autosync"] = args.autosync
         if args.file_theme:
             argumnts["richtheme"] = args.file_theme
         if args.language:
