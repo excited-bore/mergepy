@@ -99,10 +99,10 @@ undones = []
 class Slice(ListItem):
     """Base class for diff and common slices."""
 
-    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
+    def __init__(self, text, id1, linerange, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.text = text
-        self.id = id
+        self.id = id1
         self.linerange = linerange
         self.lang = lang
         self.theme = theme
@@ -111,18 +111,18 @@ class Slice(ListItem):
     def action_focus_item(self) -> None:
         pattern = re.compile(r"^seq1_*")
         if pattern.match(self.id):
-            type, type1 = 'seq2', 'scrollview2'
+            type1, type2 = 'seq2', 'scrollview2'
             result = re.sub(r"^seq1_", "seq2_", self.id)
         else:
-            type, type1 = 'seq1', 'scrollview1'
+            type1, type2 = 'seq1', 'scrollview1'
             result = re.sub(r"^seq2_", "seq1_", self.id)
 
         self.parent.parent.parent.scroll_to_widget(self, center=True)
 
         try:
             target = self.parent.parent.parent.parent.get_widget_by_id(result, Slice)
-            target1 = self.parent.parent.parent.parent.get_widget_by_id(type1)
-            listView = self.parent.parent.parent.parent.get_widget_by_id(type, SideView)
+            target1 = self.parent.parent.parent.parent.get_widget_by_id(type2)
+            listView = self.parent.parent.parent.parent.get_widget_by_id(type1, SideView)
             target1.scroll_to_widget(target, center=True, force=True)
             index = listView.children.index(target)
             listView.index = index
@@ -136,9 +136,9 @@ class Slice(ListItem):
 class DiffSlice(Slice):
     """Highlights Diff Slice."""
 
-    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
-        super().__init__(text, id, linerange, lang, theme, **kwargs)
-        self.classes = re.sub(r'.*_(replace)\d+', r'\1', id)
+    def __init__(self, text, id1, linerange, lang, theme, **kwargs) -> None:
+        super().__init__(text, id1, linerange, lang, theme, **kwargs)
+        self.classes = re.sub(r'.*_(replace)\d+', r'\1', id1)
         self.height = (linerange[1] - linerange[0]) + 3
         self.styles.height = (linerange[1] - linerange[0]) + 3
         self.virtual_size = Size(self.width, self.height)
@@ -147,124 +147,13 @@ class DiffSlice(Slice):
         syntax = Syntax(self.text, self.lang, theme=self.theme, line_range=self.linerange, line_numbers=True, indent_guides=True)
         return syntax
 
-# Textarea Overrides
-
-    #BINDINGS = [
-    #    # Cursor movement
-    #    Binding("up", "cursor_up", "Cursor up", show=False),
-    #    Binding("down", "cursor_down", "Cursor down", show=False),
-    #    Binding("left", "cursor_left", "Cursor left", show=False),
-    #    Binding("right", "cursor_right", "Cursor right", show=False),
-    #    Binding("ctrl+left", "cursor_word_left", "Cursor word left", show=False),
-    #    Binding("ctrl+right", "cursor_word_right", "Cursor word right", show=False),
-    #    Binding("home,ctrl+a", "cursor_line_start", "Cursor line start", show=False),
-    #    Binding("end,ctrl+e", "cursor_line_end", "Cursor line end", show=False),
-    #    Binding("pageup", "cursor_page_up", "Cursor page up", show=False),
-    #    Binding("pagedown", "cursor_page_down", "Cursor page down", show=False),
-    #    # Making selections (generally holding the shift key and moving cursor)
-    #    Binding(
-    #        "ctrl+shift+left",
-    #        "cursor_word_left(True)",
-    #        "Cursor left word select",
-    #        show=False,
-    #    ),
-    #    Binding(
-    #        "ctrl+shift+right",
-    #        "cursor_word_right(True)",
-    #        "Cursor right word select",
-    #        show=False,
-    #    ),
-    #    Binding(
-    #        "shift+home",
-    #        "cursor_line_start(True)",
-    #        "Cursor line start select",
-    #        show=False,
-    #    ),
-    #    Binding(
-    #        "shift+end", "cursor_line_end(True)", "Cursor line end select", show=False
-    #    ),
-    #    Binding("shift+up", "cursor_up(True)", "Cursor up select", show=False),
-    #    Binding("shift+down", "cursor_down(True)", "Cursor down select", show=False),
-    #    Binding("shift+left", "cursor_left(True)", "Cursor left select", show=False),
-    #    Binding("shift+right", "cursor_right(True)", "Cursor right select", show=False),
-    #    # Shortcut ways of making selections
-    #    # Binding("f5", "select_word", "select word", show=False),
-    #    Binding("f6", "select_line", "Select line", show=False),
-    #    Binding("f7", "select_all", "Select all", show=False),
-    #    # Deletion
-    #    Binding("backspace", "delete_left", "Delete character left", show=False),
-    #    Binding(
-    #        "ctrl+w", "delete_word_left", "Delete left to start of word", show=False
-    #    ),
-    #    Binding("delete,ctrl+d", "delete_right", "Delete character right", show=False),
-    #    Binding(
-    #        "ctrl+f", "delete_word_right", "Delete right to start of word", show=False
-    #    ),
-    #    Binding("ctrl+x", "cut", "Cut", show=False),
-    #    Binding("ctrl+c,super+c", "copy", "Copy", show=False),
-    #    Binding("ctrl+v", "paste", "Paste", show=False),
-    #    Binding(
-    #        "ctrl+u", "delete_to_start_of_line", "Delete to line start", show=False
-    #    ),
-    #    Binding(
-    #        "ctrl+k",
-    #        "delete_to_end_of_line_or_delete_line",
-    #        "Delete to line end",
-    #        show=False,
-    #    ),
-    #    Binding(
-    #        "ctrl+shift+k",
-    #        "delete_line",
-    #        "Delete line",
-    #        show=False,
-    #    ),
-    #    Binding("ctrl+z", "undo", "Undo", show=True),
-    #    Binding("ctrl+y", "redo", "Redo", show=True),
-    #]
-    """
-    | Key(s)                 | Description                                  |
-    | :-                     | :-                                           |
-    | up                     | Move the cursor up.                          |
-    | down                   | Move the cursor down.                        |
-    | left                   | Move the cursor left.                        |
-    | ctrl+left              | Move the cursor to the start of the word.    |
-    | ctrl+shift+left        | Move the cursor to the start of the word and select.    |
-    | right                  | Move the cursor right.                       |
-    | ctrl+right             | Move the cursor to the end of the word.      |
-    | ctrl+shift+right       | Move the cursor to the end of the word and select.      |
-    | home,ctrl+a            | Move the cursor to the start of the line.    |
-    | end,ctrl+e             | Move the cursor to the end of the line.      |
-    | shift+home             | Move the cursor to the start of the line and select.      |
-    | shift+end              | Move the cursor to the end of the line and select.      |
-    | pageup                 | Move the cursor one page up.                 |
-    | pagedown               | Move the cursor one page down.               |
-    | shift+up               | Select while moving the cursor up.           |
-    | shift+down             | Select while moving the cursor down.         |
-    | shift+left             | Select while moving the cursor left.         |
-    | shift+right            | Select while moving the cursor right.        |
-    | backspace              | Delete character to the left of cursor.      |
-    | ctrl+w                 | Delete from cursor to start of the word.     |
-    | delete,ctrl+d          | Delete character to the right of cursor.     |
-    | ctrl+f                 | Delete from cursor to end of the word.       |
-    | ctrl+shift+k           | Delete the current line.                     |
-    | ctrl+u                 | Delete from cursor to the start of the line. |
-    | ctrl+k                 | Delete from cursor to the end of the line.   |
-    | f6                     | Select the current line.                     |
-    | f7                     | Select all text in the document.             |
-    | ctrl+z                 | Undo.                                        |
-    | ctrl+y                 | Redo.                                        |
-    | ctrl+x                 | Cut selection or line if no selection.       |
-    | ctrl+c                 | Copy selection to clipboard.                 |
-    | ctrl+v                 | Paste from clipboard.                        |
-    """ 
-    
 
 
 class CommonSlice(Slice):
     """Common Slice."""
 
-    def __init__(self, text, id, linerange, lang, theme, **kwargs) -> None:
-        super().__init__(text, id, linerange, lang, theme, **kwargs)
+    def __init__(self, text, id1, linerange, lang, theme, **kwargs) -> None:
+        super().__init__(text, id1, linerange, lang, theme, **kwargs)
         self.height = (linerange[1] - linerange[0]) + 1
         self.styles.height = (linerange[1] - linerange[0]) + 1
         self.virtual_size = Size(self.width, self.height)
@@ -272,6 +161,7 @@ class CommonSlice(Slice):
     def render(self) -> RenderResult:
         syntax = Syntax(self.text, self.lang, line_range=self.linerange, theme=self.theme, line_numbers=True, indent_guides=True)
         return syntax
+
 
 class SideView(ListView):
      
@@ -294,10 +184,10 @@ class SideView(ListView):
         self.virtual_size = Size(self.width, self.height)
         self.get_index()
 
-    def __init__(self, text, id, slices, lang, theme, **kwargs) -> None:
+    def __init__(self, text, id1, slices, lang, theme, **kwargs) -> None:
         super().__init__(**kwargs)
         self.text = text
-        self.id = id
+        self.id = id1
         self.index = 0
         self.slices = slices
         self.lang = lang
@@ -364,7 +254,45 @@ class SideView(ListView):
             else:
                 yield CommonSlice(self.text, i[2], i[3], self.lang, self.theme)
 
+# Textarea bindings
 
+    """
+    | Key(s)                 | Description                                  |
+    | :-                     | :-                                           |
+    | up                     | Move the cursor up.                          |
+    | down                   | Move the cursor down.                        |
+    | left                   | Move the cursor left.                        |
+    | ctrl+left              | Move the cursor to the start of the word.    |
+    | ctrl+shift+left        | Move the cursor to the start of the word and select.    |
+    | right                  | Move the cursor right.                       |
+    | ctrl+right             | Move the cursor to the end of the word.      |
+    | ctrl+shift+right       | Move the cursor to the end of the word and select.      |
+    | home,ctrl+a            | Move the cursor to the start of the line.    |
+    | end,ctrl+e             | Move the cursor to the end of the line.      |
+    | shift+home             | Move the cursor to the start of the line and select.      |
+    | shift+end              | Move the cursor to the end of the line and select.      |
+    | pageup                 | Move the cursor one page up.                 |
+    | pagedown               | Move the cursor one page down.               |
+    | shift+up               | Select while moving the cursor up.           |
+    | shift+down             | Select while moving the cursor down.         |
+    | shift+left             | Select while moving the cursor left.         |
+    | shift+right            | Select while moving the cursor right.        |
+    | backspace              | Delete character to the left of cursor.      |
+    | ctrl+w                 | Delete from cursor to start of the word.     |
+    | delete,ctrl+d          | Delete character to the right of cursor.     |
+    | ctrl+f                 | Delete from cursor to end of the word.       |
+    | ctrl+shift+k           | Delete the current line.                     |
+    | ctrl+u                 | Delete from cursor to the start of the line. |
+    | ctrl+k                 | Delete from cursor to the end of the line.   |
+    | f6                     | Select the current line.                     |
+    | f7                     | Select all text in the document.             |
+    | ctrl+z                 | Undo.                                        |
+    | ctrl+y                 | Redo.                                        |
+    | ctrl+x                 | Cut selection or line if no selection.       |
+    | ctrl+c                 | Copy selection to clipboard.                 |
+    | ctrl+v                 | Paste from clipboard.                        |
+    """ 
+    
 
 class MergeView(TextArea):   
 
@@ -447,12 +375,13 @@ class MergePy(App):
 
     merge = reactive('') 
 
-    def __init__(self, file_path1: Path, file_path2: Path, output=None, richtheme='ansi_dark',language='', mergetheme='css', **kwargs):
+    def __init__(self, file_path1: Path, file_path2: Path, output=None, automerge=True, richtheme='ansi_dark',language='', mergetheme='css', **kwargs):
         super().__init__(**kwargs)
         self.id = 'app' 
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = output
+        self.automerge = automerge
         self.richtheme = richtheme 
         self.mergetheme = mergetheme 
         with open(self.file_path1) as self_file:
@@ -521,6 +450,8 @@ class MergePy(App):
         except:
             pass
 
+    def check_automerge(self): 
+        pass 
 
     def check_empty(self) -> None:
         seq1 = self.get_widget_by_id('seq1') 
@@ -534,72 +465,80 @@ class MergePy(App):
             self.textarea.focus()
 
     def action_next_conflict(self) -> None: 
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
-        for i in list.children:
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
+        for i in list1.children:
             pttrn = re.compile(r'.*replace.*')
-            if pttrn.match(i.id) and list.children.index(i) > list.index:
-                list.index = list.children.index(i)
-                list.scroll_item()
+            if pttrn.match(i.id) and list1.children.index(i) > list1.index:
+                list1.index = list1.children.index(i)
+                list1.scroll_item()
                 break
      
-    def action_sync(self) -> None:
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        list.scroll_item()
+    def sync(self) -> None:
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        list1.scroll_item()
 
-    def action_replace(self) -> None:
+    def action_sync(self) -> None:
+        self.sync()
+
+    def replace(self):
         target = self.textarea 
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
         list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
-        id = 'seq2' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq1'
-        id = id + '_' + str(re.sub(r'.*_', '', list.children[list.index].id)) 
-        diffv = self.get_widget_by_id(id)
+        id1 = 'seq2' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq1'
+        id1 = id1 + '_' + str(re.sub(r'.*_', '', list1.children[list1.index].id)) 
+        diffv = self.get_widget_by_id(id1)
         seq, seq2 = '', ''
 
-        range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
-            if num >= range[0] and num <= range[1]:
+        range1 = list1.children[list1.index].linerange
+        for num, line in enumerate(list1.children[list1.index].text.splitlines(), 1):
+            if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'replace', ''])
-        list.pop(list.index)
+        diff_lines.append([seq, list1.id, list1.index, copy.copy(list1.children[list1.index]), 'replace', ''])
+        complete1 = list1.pop(list1.index)
         
-        range = diffv.linerange
+        range1 = diffv.linerange
         for num, line in enumerate(diffv.text.splitlines(), 1):
-            if num >= range[0] and num <= range[1]:
+            if num >= range1[0] and num <= range1[1]:
                 seq2 += line[2:] + '\n'
         diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace', ''])
-        list2.pop(list2.children.index(diffv))
+        complete2 = list2.pop(list2.children.index(diffv))
         target.add_diff(seq)
         
-        list.calibrate_dimensions()
+        list1.calibrate_dimensions()
         list2.calibrate_dimensions()
         
         self.refresh_bindings()
         self.check_empty() 
-        undones.clear() 
+        undones.clear()
+        
+        return complete1, complete2
 
-    def action_keep(self) -> None:
+    def action_replace(self) -> None:
+        self.replace() 
+
+    def keep(self):
         target = self.textarea
         seq = ''
-        id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
-        list = self.get_widget_by_id('seq1') if id == 'seq1' else self.get_widget_by_id('seq2')
+        id1 = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
+        list1 = self.get_widget_by_id('seq1') if id1 == 'seq1' else self.get_widget_by_id('seq2')
         
-        range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
-            if num >= range[0] and num <= range[1]:
+        range1 = list1.children[list1.index].linerange
+        for num, line in enumerate(list1.children[list1.index].text.splitlines(), 1):
+            if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
         
-        item = list.children[list.index]
+        item = list1.children[list1.index]
 
-        diff_lines.append([seq, list.id, list.index, copy.copy(item), 'keep', ''])
+        diff_lines.append([seq, list1.id, list1.index, copy.copy(item), 'keep', ''])
         
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-        if comm.match(list.children[list.index].id):
-            idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
+        if comm.match(list1.children[list1.index].id):
+            idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
             list2 = self.get_widget_by_id(idlist2)
             
-            id2 = list.children[list.index].id 
-            id2 = re.sub(r"seq1", 'seq2', id2) if id == 'seq1' else re.sub(r"seq2", 'seq1', id2)
+            id2 = list1.children[list1.index].id 
+            id2 = re.sub(r"seq1", 'seq2', id2) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', id2)
             item2 = self.get_widget_by_id(id2)
             idx2 = list2.children.index(item2) 
 
@@ -609,29 +548,32 @@ class MergePy(App):
 
         target.add_diff(seq)
        
-        list.pop(list.index)
-        list.calibrate_dimensions()
+        list1.pop(list1.index)
+        list1.calibrate_dimensions()
         
         self.refresh_bindings()
         self.check_empty() 
         undones.clear() 
 
-    def action_delete(self) -> None:
+    def action_keep(self) -> None:
+        self.keep()
+
+    def delete(self):
         seq = ''
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
-        id = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
-        range = list.children[list.index].linerange
-        for num, line in enumerate(list.children[list.index].text.splitlines(), 1):
-            if num >= range[0] and num <= range[1]:
+        id1 = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
+        range1 = list1.children[list1.index].linerange
+        for num, line in enumerate(list1.children[list1.index].text.splitlines(), 1):
+            if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list.id, list.index, copy.copy(list.children[list.index]), 'delete', ''])
-        list.pop(list.index)
-        list.calibrate_dimensions()
+        diff_lines.append([seq, list1.id, list1.index, copy.copy(list1.children[list1.index]), 'delete', ''])
+        list1.pop(list1.index)
+        list1.calibrate_dimensions()
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-        if comm.match(list.children[list.index].id):
-            idlist2 = re.sub(r"seq1", 'seq2', list.id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.id)
-            id2 = re.sub(r"seq1", 'seq2', list.children[list.index].id) if id == 'seq1' else re.sub(r"seq2", 'seq1', list.children[list.index].id)
+        if comm.match(list1.children[list1.index].id):
+            idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
+            id2 = re.sub(r"seq1", 'seq2', list1.children[list1.index].id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.children[list1.index].id)
             list2 = self.get_widget_by_id(idlist2)
             item2 = self.get_widget_by_id(id2)
             diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete', ''])
@@ -642,17 +584,23 @@ class MergePy(App):
         self.check_empty() 
         undones.clear()
 
-    def action_replace_keep(self) -> None:
-        list = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
-        # if list still has entries
-        if type(list.index) == int and len(list.children) >= list.index:
-            repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
-            if repl.match(list.children[list.index].id):
-                self.action_replace()
-            else:
-                self.action_keep() 
+    def action_delete(self) -> None:
+        self.delete() 
 
-    def action_undo(self) -> None:
+    def replace_keep(self) -> None:
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
+        # if list still has entries
+        if type(list1.index) == int and len(list1.children) >= list1.index:
+            repl = re.compile(r'seq\d_replace\d+', re.IGNORECASE) 
+            if repl.match(list1.children[list1.index].id):
+                self.replace()
+            else:
+                self.keep() 
+
+    def action_replace_keep(self) -> None:
+        self.replace_keep()
+
+    def undo(self):
         target = self.textarea
         # If texteditor portion should undo before the selected parts of text should 
         if len(target.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.history.undo_stack[-1] == diff_lines[-1][-1]):
@@ -700,8 +648,11 @@ class MergePy(App):
             self.refresh_bindings()
             self.check_empty() 
         target.calibrate_dimensions()    
-    
-    def action_redo(self) -> None: 
+   
+    def action_undo(self) -> None:
+        self.undo() 
+
+    def redo(self): 
       
         target = self.textarea
         # If texteditor portion should redo before the selected parts of text should 
@@ -739,7 +690,10 @@ class MergePy(App):
             self.check_empty() 
         target.calibrate_dimensions()    
    
-    def action_save(self) -> None: 
+    def action_redo(self) -> None: 
+        self.redo()
+
+    def save(self): 
         
         target = self.textarea
 
@@ -773,6 +727,8 @@ class MergePy(App):
                         f.write(target.text)
                         self.notify("File saved!", title="Saved") 
 
+    def action_save(self) -> None: 
+        self.save()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:  
         # Check if an action may run.
@@ -920,6 +876,7 @@ def main():
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='Mergepy: {version}'.format(version=__version__))
     parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="output file")
+    parser.add_argument("-a","--automerge-common", type=bool, default=True, required=False, help="Automatically merge common blocks", metavar="automerge")
     parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'sata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
     Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
     Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
@@ -950,6 +907,8 @@ def main():
         argumnts = {"file_path1" : file1, "file_path2" : file2} 
         output = os.path.abspath(args.output) if args.output else None 
         argumnts["output"] = output
+        if args.automerge_common:
+            argumnts["automerge"] = args.automerge_common
         if args.file_theme:
             argumnts["richtheme"] = args.file_theme
         if args.language:
@@ -960,3 +919,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
