@@ -437,7 +437,8 @@ class MergePy(App):
 
     def on_mount(self) -> None:
         self.title = ' diff ' + str(self.file_path1) + ' ' + str(self.file_path2)
-    
+        self.check_automerge() 
+
     def on_key(self, event: events.Key) -> None:
         # Try and except otherwise command palette freaks out 
         try: 
@@ -451,7 +452,10 @@ class MergePy(App):
             pass
 
     def check_automerge(self): 
-        pass 
+        list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        if self.automerge and len(list1.children) >= 1 and comm.match(list1.children[0].id):
+            self.keep()
 
     def check_empty(self) -> None:
         seq1 = self.get_widget_by_id('seq1') 
@@ -464,7 +468,7 @@ class MergePy(App):
         elif len(seq1.children) < 2 and len(seq2.children) < 2 and not self.textarea.text == '':
             self.textarea.focus()
 
-    def action_next_conflict(self) -> None: 
+    def next_conflict(self): 
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
         for i in list1.children:
             pttrn = re.compile(r'.*replace.*')
@@ -472,8 +476,11 @@ class MergePy(App):
                 list1.index = list1.children.index(i)
                 list1.scroll_item()
                 break
-     
-    def sync(self) -> None:
+    
+    def action_next_conflict(self) -> None: 
+        self.next_conflict() 
+
+    def sync(self):
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         list1.scroll_item()
 
@@ -495,6 +502,7 @@ class MergePy(App):
             if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
         diff_lines.append([seq, list1.id, list1.index, copy.copy(list1.children[list1.index]), 'replace', ''])
+        
         complete1 = list1.pop(list1.index)
         
         range1 = diffv.linerange
@@ -503,6 +511,7 @@ class MergePy(App):
                 seq2 += line[2:] + '\n'
         diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace', ''])
         complete2 = list2.pop(list2.children.index(diffv))
+        
         target.add_diff(seq)
         
         list1.calibrate_dimensions()
@@ -512,28 +521,35 @@ class MergePy(App):
         self.check_empty() 
         undones.clear()
         
-        return complete1, complete2
+        return [complete1, complete2]
 
-    def action_replace(self) -> None:
-        self.replace() 
+    async def action_replace(self) -> None:
+        completes = self.keep()
+        if self.automerge: 
+            await completes[0]
+            await completes[1]
+            self.check_automerge() 
 
     def keep(self):
         target = self.textarea
         seq = ''
         id1 = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
         list1 = self.get_widget_by_id('seq1') if id1 == 'seq1' else self.get_widget_by_id('seq2')
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        item = list1.children[list1.index]
+        complete2 = None 
         
-        range1 = list1.children[list1.index].linerange
-        for num, line in enumerate(list1.children[list1.index].text.splitlines(), 1):
+        range1 = item.linerange
+        for num, line in enumerate(item.text.splitlines(), 1):
             if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
-        
-        item = list1.children[list1.index]
 
         diff_lines.append([seq, list1.id, list1.index, copy.copy(item), 'keep', ''])
         
-        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-        if comm.match(list1.children[list1.index].id):
+        complete1 = list1.pop(list1.index)
+        list1.calibrate_dimensions()
+        
+        if comm.match(item.id):
             idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
             list2 = self.get_widget_by_id(idlist2)
             
@@ -543,49 +559,71 @@ class MergePy(App):
             idx2 = list2.children.index(item2) 
 
             diff_lines.append([seq, list2.id, idx2, copy.copy(item2), 'keep', ''])
-            list2.pop(idx2)
+            complete2 = list2.pop(idx2)
             list2.calibrate_dimensions()
 
         target.add_diff(seq)
-       
-        list1.pop(list1.index)
-        list1.calibrate_dimensions()
         
         self.refresh_bindings()
         self.check_empty() 
-        undones.clear() 
+        undones.clear()
+        
+        if complete2: 
+            return [complete1, complete2]
+        else:
+            return [complete1]
 
-    def action_keep(self) -> None:
-        self.keep()
+    async def action_keep(self) -> None:
+        completes = self.keep()
+        if self.automerge: 
+            await completes[0]
+            if len(completes) == 2:
+                await completes[1]
+            self.check_automerge()
 
     def delete(self):
         seq = ''
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
         
         id1 = 'seq1' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq2'
-        range1 = list1.children[list1.index].linerange
-        for num, line in enumerate(list1.children[list1.index].text.splitlines(), 1):
+        item1 = list1.children[list1.index] 
+        range1 = item1.linerange
+        complete2 = None 
+        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+         
+        for num, line in enumerate(item1.text.splitlines(), 1):
             if num >= range1[0] and num <= range1[1]:
                 seq += line[2:] + '\n'
-        diff_lines.append([seq, list1.id, list1.index, copy.copy(list1.children[list1.index]), 'delete', ''])
-        list1.pop(list1.index)
+        diff_lines.append([seq, list1.id, list1.index, copy.copy(item1), 'delete', ''])
+        
+        complete1 = list1.pop(list1.index)
         list1.calibrate_dimensions()
-        comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
+        
         if comm.match(list1.children[list1.index].id):
             idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
-            id2 = re.sub(r"seq1", 'seq2', list1.children[list1.index].id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.children[list1.index].id)
+            id2 = re.sub(r"seq1", 'seq2', item1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', item1.id)
             list2 = self.get_widget_by_id(idlist2)
             item2 = self.get_widget_by_id(id2)
             diff_lines.append([seq, list2.id, list2.children.index(item2), copy.copy(item2), 'delete', ''])
-            list2.pop(list2.children.index(item2))
+            complete2 = list2.pop(list2.children.index(item2))
             list2.calibrate_dimensions()
         
         self.refresh_bindings()
         self.check_empty() 
         undones.clear()
+        
+        if complete2: 
+            return [complete1, complete2]
+        else:
+            return [complete1]
 
-    def action_delete(self) -> None:
-        self.delete() 
+    async def action_delete(self) -> None:
+        completes = self.delete() 
+        if self.automerge: 
+            await completes[0]
+            if len(completes) == 2:
+                await completes[1]
+            self.check_automerge()
 
     def replace_keep(self) -> None:
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
