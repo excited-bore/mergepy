@@ -834,7 +834,7 @@ class MergePy(App):
             else:
                 app = QApplication.instance() or QApplication(sys.argv) 
                 ext = str(Path(self.file_path1).suffix.lower()) 
-                lang = str(guess_language(self.file_path1)) 
+                lang = str(rich_language(self.file_path1)) 
                 if lang == 'unknown':
                     ext, lang = '',''
                 if not lang == '' and not ext == '':
