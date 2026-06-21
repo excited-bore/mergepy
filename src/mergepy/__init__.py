@@ -19,17 +19,26 @@ import argcomplete
 import codecs
 from textual import events, on, work, getters
 from textual.app import App, ComposeResult, RenderResult
-from textual.containers import HorizontalScroll, VerticalGroup, ScrollableContainer
+from textual.containers import Grid, HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
 from textual.binding import Binding
 from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
+from textual.screen import ModalScreen
 from rich.syntax import Syntax
 from rich.style import Style
 from PySide6.QtWidgets import QApplication, QFileDialog
 from dataclasses import dataclass, field
 
+
+# diff_lines = [ text, id, index, widget, action_name, undostack_item ]
+
+diff_lines = []
+
+# undones = [ [ [ text1, id1, index1, widget1, action_name1, undostack_item1 ], [ text2, id2, index2, widget2, action_name2, undostack_item2 ] ], ... ] 
+
+undones = []
 
 def editor_language(file_path: str) -> str:
     ext = Path(file_path).suffix.lower()
@@ -88,13 +97,6 @@ def rich_language(file_path: str) -> str:
         ".fish": "fish",
     }.get(ext, "unknown")
 
-# diff_lines = [ text, id, index, widget, action_name, undostack_item ]
-
-diff_lines = []
-
-# undones = [ [ [ text1, id1, index1, widget1, action_name1, undostack_item1 ], [ text2, id2, index2, widget2, action_name2, undostack_item2 ] ], ... ] 
-
-undones = []
 
 class Slice(ListItem):
     """Base class for diff and common slices."""
@@ -383,6 +385,36 @@ class MergeView(TextArea):
         self.undo()
         self.calibrate_dimensions() 
 
+# Straight from textual guides
+# https://textual.textualize.io/guide/screens/#returning-data-from-screens
+class QuitScreen(ModalScreen):
+    """Screen with a dialog to quit."""
+   
+    BINDINGS = [
+        ('left', 'left', 'Move left'),
+        ('right', 'right', 'Move right')
+     ] 
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label("There are unsaved changes.\nAre you sure you want to quit?", id="question"),
+            Button("Quit", variant="error", id="quit"),
+            Button("Cancel", variant="primary", id="cancel"),
+            id="dialog",
+        )
+
+    def action_left(self) -> None:
+        self.get_widget_by_id('quit').focus()
+
+    def action_right(self) -> None:
+        self.get_widget_by_id('cancel').focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "quit":
+            self.app.exit()
+        else:
+            self.app.pop_screen()
+
 class MergePy(App):
     
     CSS_PATH = "merge.tcss"
@@ -400,7 +432,7 @@ class MergePy(App):
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
         ("ctrl+s", "save", "Save"),
-        ("ctrl+q", "quit", "Quit"),
+        ("ctrl+q", "request_quit", "Quit"),
      ]
      
 
@@ -412,6 +444,7 @@ class MergePy(App):
         self.file_path1 = file_path1
         self.file_path2 = file_path2
         self.output = output
+        self.lastsaved = '' 
         self.automerge = automerge
         self.autosync = autosync
         self.richtheme = richtheme 
@@ -490,6 +523,7 @@ class MergePy(App):
         except:
             pass
 
+
     def check_automerge(self): 
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
@@ -506,6 +540,13 @@ class MergePy(App):
             seq1.focus() 
         elif len(seq1.children) < 2 and len(seq2.children) < 2 and not self.textarea.text == '':
             self.textarea.focus()
+
+    def action_request_quit(self) -> None:
+        """Action to display the quit dialog."""
+        if not self.textarea.text == self.lastsaved: 
+            self.push_screen(QuitScreen()) 
+        else:
+            self.exit()
 
     def next_conflict(self): 
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
@@ -786,8 +827,9 @@ class MergePy(App):
                 if filepath:
                     with open(filepath, 'w') as f:
                         f.write(target.text)
+                        self.lastsaved = target.text
                         self.notify("File saved!", title="Saved") 
-            
+ 
             # Otherwise default to PySide6
             else:
                 app = QApplication.instance() or QApplication(sys.argv) 
@@ -802,8 +844,8 @@ class MergePy(App):
                 if filepath:
                     with open(filepath, 'w') as f:
                         f.write(target.text)
+                        self.lastsaved = target.text
                         self.notify("File saved!", title="Saved") 
-
     def action_save(self) -> None: 
         self.save()
 
@@ -930,9 +972,6 @@ class MergePy(App):
             i += 1
         return seq
    
-    
-         
-
     def compose(self) -> ComposeResult:
         # A scrollable container for the file contents
         # yield Header()
