@@ -236,6 +236,14 @@ class SideView(ListView):
                 self.index = self.index - 1 
             else:
                 self.parent.scroll_to_widget(self.children[self.index+1], center=True)
+        elif event.key == 'pageup' and not self.index == 0:
+            self.index = 0 
+            self.parent.scroll_to_widget(self.children[self.index], center=True)
+            self.scroll_item()
+        elif event.key == 'pagedown' and not self.index == len(self.children) - 1:
+            self.index = len(self.children) - 1 
+            self.parent.scroll_to_widget(self.children[self.index], center=True)
+            self.scroll_item()
         elif event.key == 'ctrl+right': 
             seq1.highlighted_child.highlighted = False 
             seq2.highlighted_child.highlighted = False 
@@ -447,6 +455,8 @@ class MergePy(App):
         self.lastsaved = '' 
         self.automerge = automerge
         self.autosync = autosync
+        if False:
+            raise SystemExit(self.autosync) 
         self.richtheme = richtheme 
         self.mergetheme = mergetheme 
         with open(self.file_path1) as self_file:
@@ -518,8 +528,6 @@ class MergePy(App):
                  
                 if not (event.key == 'shift+up' or event.key == 'shift+down' or event.key == 'shift+left' or event.key == 'shift+right'): 
                     self.refresh_bindings()
-                #if event.key == 'enter':
-                #    self.action_replace_keep()
         except:
             pass
 
@@ -870,7 +878,7 @@ class MergePy(App):
                 h = list1.highlighted_child
                 seq = True
             
-            if (action == "next_conflict" or action == 'scroll1' or action == 'sync' or action == 'replace_keep') and mergeview.has_focus_within:
+            if (action == "next_conflict" or action == 'scroll1' or action == 'replace_keep') and mergeview.has_focus_within:
                 return False
             elif (action == 'scroll2' or action == 'select') and not mergeview.has_focus_within:
                 return False
@@ -992,8 +1000,8 @@ def main():
     parser = argparse.ArgumentParser(description="Merge files 2-way",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-v','--version', action='version', version='Mergepy: {version}'.format(version=__version__))
     parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="outputfile")
-    parser.add_argument("-m","--automerge-common", type=bool, default=True, required=False, help="Automatically merge common blocks", metavar="automerge")
-    parser.add_argument("-s","--autosync", type=bool, default=True, required=False, help="Automatically sync parallel blocks when moving up or down. If false, use spacebar to sync", metavar="autosync")
+    parser.add_argument("-m","--no-automerge-common", action='store_false', required=False, help="Mergepy automatically merges common blocks. Pass this if you want to avoid this behaviour.")
+    parser.add_argument("-s","--no-autosync", action='store_false', required=False, help="Mergepy automatically syncs parallel blocks when moving up or down. Pass this if you want to avoid this behavior (use spacebar to sync manually).")
     parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'sata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
     Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
     Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
@@ -1006,7 +1014,6 @@ def main():
         output_stream = codecs.getwriter("utf-8")(sys.stdout.buffer)
     argcomplete.autocomplete(parser, output_stream=output_stream)
     args = parser.parse_args() 
-    
     if hasattr(args, ' version'):
         print('Mergepy: {version}'.format(version=__version__))
     
@@ -1024,10 +1031,10 @@ def main():
         argumnts = {"file_path1" : file1, "file_path2" : file2} 
         output = os.path.abspath(args.output) if args.output else None 
         argumnts["output"] = output
-        if args.automerge_common:
-            argumnts["automerge"] = args.automerge_common
-        if args.autosync:
-            argumnts["autosync"] = args.autosync
+        if args.no_automerge_common or args.no_automerge_common == False:
+            argumnts["automerge"] = args.no_automerge_common
+        if args.no_autosync or args.no_autosync == False:
+            argumnts["autosync"] = args.no_autosync
         if args.file_theme:
             argumnts["richtheme"] = args.file_theme
         if args.language:
