@@ -907,8 +907,8 @@ class MergePy(App):
         lines1 = string1.splitlines(keepends=True)
         lines2 = string2.splitlines(keepends=True)
 
-        differ = difflib.Differ()
-        diff = differ.compare(lines1, lines2)
+        #differ = difflib.ndiff()
+        diff = difflib.ndiff(lines1, lines2)
         sequence = []
         # Diff object does not have indices which we need to put it in a list first
         for line in diff:
