@@ -1,10 +1,7 @@
 Screen {
     height: 100%;
     width: 100%;
-    # box-sizing: content-box;
-    # layers: below above;
     layout: horizontal;
-    # overflow: hidden; 
 }
 
 QuitScreen {
@@ -38,18 +35,11 @@ Label{
 }
 
 DiffSlice{
-    # layer: above;
-    # overflow: auto;
-    # height: auto;
-    # height: 100%;
     width: 100%;
     border: round white;
 }
 
 CommonSlice{
-    # layer: below;
-    # overflow: scroll;
-    # height: auto;
     height: 100%;
     width: 100%;
     opacity: 50%;
@@ -83,8 +73,8 @@ MergeView {
     scrollbar-visibility: visible;
 }
 
-VerticalGroup{
-    align: center middle;
+#group{
+    layout: vertical;
     width: 50%;
-    # overflow: hidden;
+    overflow: hidden;
 }

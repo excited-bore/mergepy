@@ -22,10 +22,11 @@ from textual.app import App, ComposeResult, RenderResult
 from textual.containers import Grid, HorizontalScroll, VerticalGroup, ScrollableContainer
 from textual.geometry import Size
 from textual.binding import Binding
-from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea
 from textual.reactive import reactive
 from textual.scroll_view import ScrollView
 from textual.screen import ModalScreen
+from textual.widgets import Label, Footer, Header, Static, Button, ListItem, ListView, TextArea 
+from textual.widget import Widget
 from rich.syntax import Syntax
 from rich.style import Style
 from PySide6.QtWidgets import QApplication, QFileDialog
@@ -984,7 +985,7 @@ class MergePy(App):
         # A scrollable container for the file contents
         # yield Header()
        
-        with VerticalGroup():
+        with Widget(id='group'):
             yield Label(str(self.file_path1))
             with HorizontalScroll(id='scrollview1'):
                 yield SideView(self.text1, 'seq1', self.slices1, self.richlang, self.richtheme, self.autosync)
