@@ -1,6 +1,6 @@
 [project]
 name = "mergepy"
-version = "1.2.3"
+version = "1.2.4"
 authors = [
   { name="Excited Bore", email="brunt-curry-wobble@duck.com" },
 ]

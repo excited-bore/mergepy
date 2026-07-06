@@ -575,7 +575,6 @@ class MergePy(App):
         list2 = self.get_widget_by_id('seq2') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq1')
         id1 = 'seq2' if self.get_widget_by_id('scrollview1').has_focus_within else 'seq1'
         id1 = id1 + '_' + str(re.sub(r'.*_', '', list1.children[list1.index].id)) 
-        diffv = self.get_widget_by_id(id1)
         seq, seq2 = '', ''
 
         range1 = list1.children[list1.index].linerange
@@ -585,13 +584,18 @@ class MergePy(App):
         diff_lines.append([seq, list1.id, list1.index, copy.copy(list1.children[list1.index]), 'replace', ''])
         
         complete1 = list1.pop(list1.index)
-        
-        range1 = diffv.linerange
-        for num, line in enumerate(diffv.text.splitlines(), 1):
-            if num >= range1[0] and num <= range1[1]:
-                seq2 += line[2:] + '\n'
-        diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace', ''])
-        complete2 = list2.pop(list2.children.index(diffv))
+        complete2 = ''
+
+        try: 
+            diffv = self.get_widget_by_id(id1)
+            range1 = diffv.linerange
+            for num, line in enumerate(diffv.text.splitlines(), 1):
+                if num >= range1[0] and num <= range1[1]:
+                    seq2 += line[2:] + '\n'
+            diff_lines.append([seq2, list2.id, list2.children.index(diffv), copy.copy(diffv), 'replace', ''])
+            complete2 = list2.pop(list2.children.index(diffv))
+        except:
+            pass
         
         target.add_diff(seq)
         
@@ -601,14 +605,18 @@ class MergePy(App):
         self.refresh_bindings()
         self.check_empty() 
         undones.clear()
-        
-        return [complete1, complete2]
+       
+        if not complete2 == '': 
+            return [complete1, complete2]
+        else:
+            return [complete1]
 
     async def action_replace(self) -> None:
         completes = self.replace()
         if self.automerge: 
             await completes[0]
-            await completes[1]
+            if len(completes) > 1: 
+                await completes[1]
             self.check_automerge() 
 
     def keep(self):
