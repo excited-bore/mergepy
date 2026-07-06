@@ -3,7 +3,6 @@
 
 from importlib.metadata import version
 __version__ = version("mergepy")
-#__version__='1.0'
 
 import os
 import platform
