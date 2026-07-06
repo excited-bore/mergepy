@@ -681,7 +681,7 @@ class MergePy(App):
         complete1 = list1.pop(list1.index)
         list1.calibrate_dimensions()
         
-        if comm.match(list1.children[list1.index].id):
+        if comm.match(item1.id):
             idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
             id2 = re.sub(r"seq1", 'seq2', item1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', item1.id)
             list2 = self.get_widget_by_id(idlist2)
@@ -701,11 +701,11 @@ class MergePy(App):
 
     async def action_delete(self) -> None:
         completes = self.delete() 
-        if self.automerge: 
-            await completes[0]
-            if len(completes) == 2:
-                await completes[1]
-            self.check_automerge()
+        #if self.automerge: 
+        #    await completes[0]
+        #    if len(completes) == 2:
+        #        await completes[1]
+        #    self.check_automerge()
 
     def replace_keep(self) -> None:
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2')
@@ -730,11 +730,11 @@ class MergePy(App):
     def undo(self):
         target = self.textarea
         # If texteditor portion should undo before the selected parts of text should 
-        if len(target.history.undo_stack) > 0 and (len(diff_lines) == 0 or not target.history.undo_stack[-1] == diff_lines[-1][-1]):
+        if len(target.history.undo_stack) > 0 and (len(diff_lines) == 0 or (not target.history.undo_stack[-1] == diff_lines[-1][-1] and not diff_lines[-1][-2] == 'delete')):
             target.move_cursor(target.history.undo_stack[-1][-1]._edit_result.end_location)
             target.undo()
             target.scroll_cursor_visible()
-        elif len(diff_lines) > 0: 
+        elif len(diff_lines) > 0:  
             
             seq1 = self.get_widget_by_id('seq1') 
             if seq1.index:
