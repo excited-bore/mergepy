@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # PYTHON_ARGCOMPLETE_OK
 
-import importlib.metadata
-#__version__ = importlib.metadata.version("mergepy")
-__version__='1.0'
-
+from importlib.metadata import version
+__version__ = version("mergepy")
+#__version__='1.0'
 
 import os
 import platform
@@ -437,7 +436,7 @@ class MergePy(App):
         ("enter", "replace_keep", "Replace diff/Keep common"),
         ("r", "replace", "Replace Block"),
         ("k", "keep", "Keep Block"),
-        ("d", "delete", "Delete Block"),
+        # ("d", "delete", "Delete Block"),
         ("ctrl+z", "undo", "Undo"),
         ("ctrl+y", "redo", "Redo"),
         ("ctrl+s", "save", "Save"),
@@ -634,8 +633,7 @@ class MergePy(App):
         if comm.match(item.id):
             idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
             list2 = self.get_widget_by_id(idlist2)
-            
-            id2 = list2.children[list2.index].id 
+            id2 = re.sub(r"seq1", 'seq2', item.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', item.id)
             id2 = re.sub(r"seq1", 'seq2', id2) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', id2)
             item2 = self.get_widget_by_id(id2)
             idx2 = list2.children.index(item2) 
@@ -1004,9 +1002,7 @@ def main():
     parser.add_argument("-o","--output", required=False, help="Output file of the merge", metavar="outputfile")
     parser.add_argument("-m","--no-automerge-common", action='store_false', required=False, help="Mergepy automatically merges common blocks. Pass this if you want to avoid this behaviour.")
     parser.add_argument("-s","--no-autosync", action='store_false', required=False, help="Mergepy automatically syncs parallel blocks when moving up or down. Pass this if you want to avoid this behavior (use spacebar to sync manually).")
-    parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'stata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. 
-    Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. 
-    Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
+    parser.add_argument("-f","--file-theme", required=False, choices=['ansi_dark', 'ansi_light', 'bw', 'sas', 'staroffice', 'xcode', 'default', 'monokai', 'lightbulb', 'github-dark', 'rrt', 'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'borland', 'colorful', 'igor', 'lovelace', 'murphy', 'pastie', 'rainbow_dash', 'stata-light', 'stata-dark', 'trac', 'vs', 'emacs', 'tango', 'solarized-light', 'solarized-dark', 'manni', 'gruvbox', 'gruvbox-light', 'gruvbox-dark', 'friendly', 'friendly_grayscale', 'perldoc', 'paraiso-light', 'paraiso-dark', 'zenburn', 'nord', 'nord-darker', 'material', 'one-dark', 'dracula', 'coffee', 'native', 'inkpot', 'fruity', 'vim'],  default='ansi_dark', help="""Syntax theme of the two files. Should be the name of a Pygments theme, or a special case name like 'ansi_dark/ansi_light'. Refer to: https://pygments.org/styles/ for reference.""", metavar="filetheme")
     parser.add_argument("-l","--language", required=False, choices=["python","javascript","typescript","json","java","cpp","c","html","css","ruby","php","rust","go","swift","yaml","bash","zsh"], help="""Language to parse for the editor portion (merge).""", metavar="mergelanguage") 
     parser.add_argument("-e","--editor-theme", required=False, choices=TextArea().available_themes, default='css', help="""Syntax theme of the editor portion (merge). Available options are: 'css', 'dracula', 'vscode_dark', 'github_light', 'monokai'""", metavar="mergetheme") 
     parser.add_argument("file1", type=Path, help="First file to be merged", metavar="file1")
