@@ -1,2 +1,4 @@
 .venv/
 tags
+dist/
+src/mergepy.egg-info/

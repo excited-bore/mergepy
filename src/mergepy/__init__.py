@@ -536,7 +536,7 @@ class MergePy(App):
     def check_automerge(self): 
         list1 = self.get_widget_by_id('seq1') if self.get_widget_by_id('scrollview1').has_focus_within else self.get_widget_by_id('seq2') 
         comm = re.compile(r'seq\d_common\d+', re.IGNORECASE) 
-        if self.automerge and len(list1.children) >= 1 and comm.match(list1.children[0].id):
+        if self.automerge and len(list1.children) >= 1 and comm.match(list1.highlighted_child.id):
             self.keep()
 
     def check_empty(self) -> None:
@@ -635,7 +635,7 @@ class MergePy(App):
             idlist2 = re.sub(r"seq1", 'seq2', list1.id) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', list1.id)
             list2 = self.get_widget_by_id(idlist2)
             
-            id2 = list1.children[list1.index].id 
+            id2 = list2.children[list2.index].id 
             id2 = re.sub(r"seq1", 'seq2', id2) if id1 == 'seq1' else re.sub(r"seq2", 'seq1', id2)
             item2 = self.get_widget_by_id(id2)
             idx2 = list2.children.index(item2) 
@@ -907,7 +907,8 @@ class MergePy(App):
         lines1 = string1.splitlines(keepends=True)
         lines2 = string2.splitlines(keepends=True)
 
-        #differ = difflib.ndiff()
+        #differ = difflib.Differ() 
+        #diff = differ.compare(lines1, lines2) 
         diff = difflib.ndiff(lines1, lines2)
         sequence = []
         # Diff object does not have indices which we need to put it in a list first
